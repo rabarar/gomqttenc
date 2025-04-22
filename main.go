@@ -5,15 +5,20 @@ import (
 	"crypto/cipher"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	"gomqttenc/github.com/meshtastic/go/generated"
+	"buf.build/gen/go/meshtastic/protobufs/protocolbuffers/go/meshtastic"
+	"github.com/charmbracelet/log"
+
+	"github.com/kmpm/meshtool-go/public/radio"
 
 	// Replace with actual path to your generated mesh.pb.go
 
@@ -81,29 +86,86 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 
 	fmt.Println("Key length:", len(channelKey)) // should be 16 or 32
 
-	var packet generated.MeshPacket
-	err := proto.Unmarshal(msg.Payload(), &packet)
+	var env meshtastic.ServiceEnvelope
+	err := proto.Unmarshal(msg.Payload(), &env)
 	if err != nil {
 		log.Printf("Failed to parse MeshPacket: %v", err)
 		return
 	}
 
-	encryptedPayload, ok := packet.PayloadVariant.(*generated.MeshPacket_Encrypted)
-	if !ok {
-		log.Println("MeshPacket does not contain an Encrypted payload")
+	log.Printf("ChannelID: [%s]\n", env.ChannelId)
+
+	if env.Packet == nil {
+		log.Error("no packet in Service Envelop")
 		return
 	}
 
-	decrypted, err := decryptMeshtasticAESGCM(channelKey, packet.From, packet.Id, encryptedPayload.Encrypted)
+	messagePtr, err := radio.TryDecode(env.Packet, channelKey)
 	if err != nil {
-		log.Printf("Error decrypting payload: %v", err)
+		log.Error("failed to decode packet", "err", err, "payload", hex.EncodeToString(msg.Payload()))
 		return
 	}
-	fmt.Printf("Decrypted message: %s\n", decrypted)
+
+	if out, err := processMessage(messagePtr); err != nil {
+		if messagePtr.Portnum != 0 {
+			log.Error("failed to process message", "err", err, "payload", hex.EncodeToString(msg.Payload()), "topic", msg.Topic(), "channel", env.ChannelId, "portnum", messagePtr.Portnum.String())
+		}
+		return
+	} else {
+		log.Info(out, "topic", msg.Topic, "channel", env.ChannelId, "portnum", messagePtr.Portnum.String())
+	}
 
 }
 
+var ErrUnknownMessageType = errors.New("unknown message type")
+
+func processMessage(message *meshtastic.Data) (string, error) {
+	var err error
+	if message.Portnum == meshtastic.PortNum_NODEINFO_APP {
+		var user = meshtastic.User{}
+		err = proto.Unmarshal(message.Payload, &user)
+		return user.String(), err
+	}
+	if message.Portnum == meshtastic.PortNum_POSITION_APP {
+		var pos = meshtastic.Position{}
+		err = proto.Unmarshal(message.Payload, &pos)
+		return pos.String(), err
+	}
+	if message.Portnum == meshtastic.PortNum_TELEMETRY_APP {
+		var t = meshtastic.Telemetry{}
+		err = proto.Unmarshal(message.Payload, &t)
+		return t.String(), err
+	}
+	if message.Portnum == meshtastic.PortNum_NEIGHBORINFO_APP {
+		var n = meshtastic.NeighborInfo{}
+		err = proto.Unmarshal(message.Payload, &n)
+		return n.String(), err
+	}
+	if message.Portnum == meshtastic.PortNum_STORE_FORWARD_APP {
+		var s = meshtastic.StoreAndForward{}
+		err = proto.Unmarshal(message.Payload, &s)
+		return s.String(), err
+	}
+	if message.Portnum == meshtastic.PortNum_TEXT_MESSAGE_APP {
+		txt := message.Payload
+		return string(txt), err
+	}
+
+	log.Printf("unknown messsage type: %d\n", message.Portnum)
+	return "", ErrUnknownMessageType
+}
+
 func main() {
+
+	var level string
+	flag.StringVar(&level, "level", "info", "Log level")
+	flag.Parse()
+
+	if lvl, err := log.ParseLevel(level); err == nil {
+		log.SetLevel(lvl)
+	} else {
+		log.Fatal("failed to parse log level", "level", level, "err", err)
+	}
 
 	cfg, err := loadConfig("config.json")
 	if err != nil {

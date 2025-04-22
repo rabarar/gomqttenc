@@ -2,7 +2,7 @@
 MESH_PROTO=../protobufs
 GENDIR=./go
 
-gomqttenc: main.go go-proto
+gomqttenc: main.go 
 	go mod tidy; go build
 
 
