@@ -13,13 +13,18 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+gomqttenc
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+github.com
 
 # Go workspace file
 go.work
 go.work.sum
+mesh-proto-gen.txt
 
 # env file
 .env
+
+config.json

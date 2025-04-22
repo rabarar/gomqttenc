@@ -1,0 +1,9 @@
+{
+  "broker": "tcp://mqtt.XXXXXXXX.com:1883",
+  "topic": "msh/US/MD/howardcounty/2/e/Baruch/#",
+  "clientID": "golang_mqtt_client",
+  "username": "XXXXXXX",
+  "password": "XXXXXXXXXX",
+  "b64Key": "XXXXXXXXXXXXXXXXXXXXXXXX"
+}
+
