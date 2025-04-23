@@ -1,5 +1,3 @@
-buf.build/gen/go/meshtastic/protobufs/protocolbuffers/go v1.36.6-20241006120827-cc36fd21e859.1 h1:Ag4IzW2iiMayjuSOHoOqXFBzQkvDTPI2Kn49Gpfzufc=
-buf.build/gen/go/meshtastic/protobufs/protocolbuffers/go v1.36.6-20241006120827-cc36fd21e859.1/go.mod h1:Pb99t5VcAbgWOAT8d5toGlg6s1YcrNxVv3R3MIphhxI=
 github.com/aymanbagabas/go-osc52/v2 v2.0.1 h1:HwpRHbFMcZLEVr42D4p7XBqjyuxQH5SMiErDT4WkJ2k=
 github.com/aymanbagabas/go-osc52/v2 v2.0.1/go.mod h1:uYgXzlJ7ZpABp8OJ+exZzJJhRNQ2ASbcXHWsFqH8hp8=
 github.com/charmbracelet/colorprofile v0.3.0 h1:KtLh9uuu1RCt+Hml4s6Hz+kB1PfV3wi++1h5ia65yKQ=
@@ -24,8 +22,6 @@ github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
 github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
 github.com/gorilla/websocket v1.5.3 h1:saDtZ6Pbx/0u+bgYQ3q96pZgCzfhKXGPqt7kZ72aNNg=
 github.com/gorilla/websocket v1.5.3/go.mod h1:YR8l580nyteQvAITg2hZ9XVh4b55+EU/adAjf1fMHhE=
-github.com/kmpm/meshtool-go v0.0.0-20250410140519-995c8e745fd1 h1:VNc07Au7Q30pHaARQK1Bk0Q8oVxjVudRb0lNmup9yGw=
-github.com/kmpm/meshtool-go v0.0.0-20250410140519-995c8e745fd1/go.mod h1:B0roj3mAUxgYZvlfJUhEOgIjoVCOqm+7gIXgo4T0mC0=
 github.com/lucasb-eyer/go-colorful v1.2.0 h1:1nnpGOrhyZZuNyfu1QjKiUICQ74+3FNCN69Aj6K7nkY=
 github.com/lucasb-eyer/go-colorful v1.2.0/go.mod h1:R4dSotOR9KMtayYi1e77YzuveK+i7ruzyGqttikkLy0=
 github.com/mattn/go-isatty v0.0.20 h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=
@@ -36,6 +32,10 @@ github.com/muesli/termenv v0.16.0 h1:S5AlUN9dENB57rsbnkPyfdGuWIlkmzJjbFf0Tf5FWUc
 github.com/muesli/termenv v0.16.0/go.mod h1:ZRfOIKPFDYQoDFF4Olj7/QJbW60Ol/kL1pU3VfY/Cnk=
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
+github.com/rabarar/meshtastic v0.1.0 h1:8JWAGOK7Tb9KMXcXMQXJfEiW4k3pMFlPuBgyNJXvlzw=
+github.com/rabarar/meshtastic v0.1.0/go.mod h1:9vqOFBT1aw89mgTUzYTBXgS4v7SdBQQWw9JKdw9Zc7M=
+github.com/rabarar/meshtool-go v0.0.0-20250423022917-bcf733b8ed62 h1:4YB2zCLnfXhj0gBXVZQIO+DVNyGFvMxLJYWzs9tMptc=
+github.com/rabarar/meshtool-go v0.0.0-20250423022917-bcf733b8ed62/go.mod h1:x0mSNxn0tF9RPMaOwv5xfsxBRq93hVCJZPXp/cHhhMc=
 github.com/rivo/uniseg v0.2.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
 github.com/rivo/uniseg v0.4.7 h1:WUdvkW8uEhrYfLC4ZzdpI2ztxP1I582+49Oc5Mq64VQ=
 github.com/rivo/uniseg v0.4.7/go.mod h1:FN3SvrM+Zdj16jyLfmOkMNblXMcoc8DfTHruCPUcx88=

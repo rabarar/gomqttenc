@@ -15,12 +15,11 @@ import (
 	"syscall"
 	"time"
 
-	"buf.build/gen/go/meshtastic/protobufs/protocolbuffers/go/meshtastic"
+	"github.com/rabarar/meshtastic"
+
 	"github.com/charmbracelet/log"
 
-	"github.com/kmpm/meshtool-go/public/radio"
-
-	// Replace with actual path to your generated mesh.pb.go
+	"github.com/rabarar/meshtool-go/public/radio"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"google.golang.org/protobuf/proto"
