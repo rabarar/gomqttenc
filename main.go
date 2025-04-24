@@ -26,16 +26,16 @@ import (
 )
 
 var (
-	channelKey = []byte{}
+	channelKeys = map[string][]byte{}
 )
 
 type Config struct {
-	Broker   string `json:"broker"`
-	Topic    string `json:"topic"`
-	ClientID string `json:"clientID"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	B64Key   string `json:"b64Key"`
+	Broker   string              `json:"broker"`
+	Topic    string              `json:"topic"`
+	ClientID string              `json:"clientID"`
+	Username string              `json:"username"`
+	Password string              `json:"password"`
+	B64Keys  []map[string]string `json:"b64Key"`
 }
 
 func loadConfig(filename string) (*Config, error) {
@@ -83,8 +83,6 @@ func decryptMeshtasticAESGCM(channelKey []byte, senderID uint32, packetID uint32
 func messageHandler(client mqtt.Client, msg mqtt.Message) {
 	log.Printf("Received message from topic: %s", msg.Topic())
 
-	fmt.Println("Key length:", len(channelKey)) // should be 16 or 32
-
 	var env meshtastic.ServiceEnvelope
 	err := proto.Unmarshal(msg.Payload(), &env)
 	if err != nil {
@@ -92,14 +90,13 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 		return
 	}
 
-	log.Printf("ChannelID: [%s]\n", env.ChannelId)
-
 	if env.Packet == nil {
 		log.Error("no packet in Service Envelop")
 		return
 	}
 
-	messagePtr, err := radio.TryDecode(env.Packet, channelKey)
+	// TODO check for key existence...
+	messagePtr, err := radio.TryDecode(env.Packet, channelKeys[env.ChannelId])
 	if err != nil {
 		log.Error("failed to decode packet", "err", err, "payload", hex.EncodeToString(msg.Payload()))
 		return
@@ -107,11 +104,11 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 
 	if out, err := processMessage(messagePtr); err != nil {
 		if messagePtr.Portnum != 0 {
-			log.Error("failed to process message", "err", err, "payload", hex.EncodeToString(msg.Payload()), "topic", msg.Topic(), "channel", env.ChannelId, "portnum", messagePtr.Portnum.String())
+			log.Error("failed to process message", "err", err, "source", messagePtr.Source, "dest", messagePtr.Dest, "payload", hex.EncodeToString(msg.Payload()), "topic", msg.Topic(), "channel", env.ChannelId, "portnum", messagePtr.Portnum.String())
 		}
 		return
 	} else {
-		log.Info(out, "topic", msg.Topic, "channel", env.ChannelId, "portnum", messagePtr.Portnum.String())
+		log.Info(out, "topic", msg.Topic, "source", messagePtr.Source, "dest", messagePtr.Dest, "channel", env.ChannelId, "portnum", messagePtr.Portnum.String())
 	}
 
 }
@@ -149,6 +146,20 @@ func processMessage(message *meshtastic.Data) (string, error) {
 		txt := message.Payload
 		return string(txt), err
 	}
+	if message.Portnum == meshtastic.PortNum_MAP_REPORT_APP {
+		var m = meshtastic.MapReport{}
+		err = proto.Unmarshal(message.Payload, &m)
+		return m.String(), err
+	}
+	if message.Portnum == meshtastic.PortNum_TRACEROUTE_APP {
+		txt := message.Payload
+		return string(txt), err
+	}
+	if message.Portnum == meshtastic.PortNum_ROUTING_APP {
+		var r = meshtastic.Routing{}
+		err = proto.Unmarshal(message.Payload, &r)
+		return r.String(), err
+	}
 
 	log.Printf("unknown messsage type: %d\n", message.Portnum)
 	return "", ErrUnknownMessageType
@@ -172,9 +183,14 @@ func main() {
 		return
 	}
 
-	channelKey, err = base64.StdEncoding.DecodeString(cfg.B64Key)
-	if err != nil {
-		log.Fatal("Invalid base64 channel key:", err)
+	for _, entry := range cfg.B64Keys {
+		for k, v := range entry {
+			fmt.Printf("creating key for: %s value: %s\n", k, string(v))
+			channelKeys[k], err = base64.StdEncoding.DecodeString(string(v))
+			if err != nil {
+				log.Fatal("Invalid base64 channel key:", err)
+			}
+		}
 	}
 
 	opts := mqtt.NewClientOptions()
