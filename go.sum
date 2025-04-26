@@ -34,8 +34,8 @@ github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZb
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/rabarar/meshtastic v0.1.0 h1:8JWAGOK7Tb9KMXcXMQXJfEiW4k3pMFlPuBgyNJXvlzw=
 github.com/rabarar/meshtastic v0.1.0/go.mod h1:9vqOFBT1aw89mgTUzYTBXgS4v7SdBQQWw9JKdw9Zc7M=
-github.com/rabarar/meshtool-go v0.0.0-20250423022917-bcf733b8ed62 h1:4YB2zCLnfXhj0gBXVZQIO+DVNyGFvMxLJYWzs9tMptc=
-github.com/rabarar/meshtool-go v0.0.0-20250423022917-bcf733b8ed62/go.mod h1:x0mSNxn0tF9RPMaOwv5xfsxBRq93hVCJZPXp/cHhhMc=
+github.com/rabarar/meshtool-go v1.0.1-b h1:m2ZcrgarcYZEqNcUbxhK6RSz5sXns9PThfOdoHWaO1I=
+github.com/rabarar/meshtool-go v1.0.1-b/go.mod h1:x0mSNxn0tF9RPMaOwv5xfsxBRq93hVCJZPXp/cHhhMc=
 github.com/rivo/uniseg v0.2.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
 github.com/rivo/uniseg v0.4.7 h1:WUdvkW8uEhrYfLC4ZzdpI2ztxP1I582+49Oc5Mq64VQ=
 github.com/rivo/uniseg v0.4.7/go.mod h1:FN3SvrM+Zdj16jyLfmOkMNblXMcoc8DfTHruCPUcx88=

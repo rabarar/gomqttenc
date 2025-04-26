@@ -29,9 +29,14 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+type Key struct {
+	hex []byte
+	txt string
+}
+
 var (
 	ErrUnknownMessageType = errors.New("unknown message type")
-	channelKeys           = map[string][]byte{}
+	channelKeys           = map[string]Key{}
 	lineCh                = make(chan Metric)
 )
 
@@ -113,18 +118,20 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 	log.Infof("SvsEnv|source: [%x] SvsEnv|dest: [%x]", env.Packet.From, env.Packet.To)
 
 	// if it's a PKI message use the device ID to decrypt
-	var privKey []byte
+	var privKey Key
 	if env.ChannelId == "PKI" {
 		env.ChannelId = fmt.Sprintf("!%x", env.Packet.To)
 	}
 
+	log.Warnf("retrieving key for %s", env.ChannelId)
 	privKey, ok := channelKeys[env.ChannelId]
 	if !ok {
 		log.Errorf("no private key found for ChannelId: [%s]", env.ChannelId)
 		return
 	}
 
-	messagePtr, err := radio.TryDecode(env.Packet, privKey)
+	log.Warnf("Decoding with key [%s]", privKey.txt)
+	messagePtr, err := radio.TryDecode(env.Packet, privKey.hex)
 	if err != nil {
 		log.Error("failed to decode packet", "err", err, "payload", hex.EncodeToString(msg.Payload()))
 		return
@@ -300,10 +307,13 @@ func main() {
 	for _, entry := range cfg.B64Keys {
 		for k, v := range entry {
 			log.Infof("creating key %s, value %s", k, string(v))
-			channelKeys[k], err = base64.StdEncoding.DecodeString(string(v))
+			var key Key
+			key.txt = string(v)
+			key.hex, err = base64.StdEncoding.DecodeString(string(v))
 			if err != nil {
 				log.Fatalf("Invalid base64 channel key: %s", err)
 			}
+			channelKeys[k] = key
 		}
 	}
 
