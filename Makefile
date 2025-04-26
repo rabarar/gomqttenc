@@ -1,7 +1,7 @@
 
 MESH_PROTO=../protobufs
 
-gomqttenc: main.go 
+gomqttenc: main.go parse_position.go parse_telemetry.go parser.go parse_map_report.go utils.go
 	go mod tidy; go build
 
 clean:
