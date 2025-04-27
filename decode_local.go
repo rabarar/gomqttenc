@@ -46,10 +46,7 @@ func TryDecode(packet *meshtastic.MeshPacket, keys []Key, decryptType DecryptTyp
 				return nil, ErrDecrypt
 			}
 		case DecryptDirect:
-			// TODO CHECK AND USE ONLY PARSED CIPHERTEXT
-			// TODO ciphertext := packet.GetEncrypted()
-			parsed, err := parseServiceEnvelopePayload(packet.GetEncrypted())
-			ciphertext := parsed.Ciphertext
+			ciphertext := packet.GetEncrypted()
 			log.Warnf("CIPHERTEXT: [%s][%d]", hex.EncodeToString(ciphertext), len(ciphertext))
 			log.Warnf("PacketId: [%x]", packet.Id)
 
@@ -64,6 +61,7 @@ func TryDecode(packet *meshtastic.MeshPacket, keys []Key, decryptType DecryptTyp
 		err = proto.Unmarshal(decrypted, &meshPacket)
 		if err != nil {
 			log.Warnf("Failed to unmarshal Meshtastic Data packet: %s", err)
+			log.Warnf("Plaintext: [%x]", decrypted)
 			return nil, ErrDecrypt
 		}
 		return &meshPacket, nil
@@ -168,8 +166,8 @@ func buildNonce(packetNum uint32, fromNode uint32, extraNonce uint32) []byte {
 	// fromNode
 	binary.LittleEndian.PutUint32(nonce[8:12], fromNode)
 
-	// lowest byte of extraNonce
-	nonce[12] = byte(extraNonce & 0xFF)
+	// ⚡ DO NOT SET nonce[12]!
+	// ⚡ It should remain zero (already zero by default in Go slices)
 
 	return nonce
 }
