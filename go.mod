@@ -6,7 +6,8 @@ require (
 	github.com/charmbracelet/log v0.4.1
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/rabarar/meshtastic v0.1.0
-	github.com/rabarar/meshtool-go v1.0.1-b
+	github.com/rabarar/meshtool-go v1.0.1-m
+	golang.org/x/crypto v0.37.0
 	google.golang.org/protobuf v1.36.6
 )
 

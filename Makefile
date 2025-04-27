@@ -1,7 +1,17 @@
 
 MESH_PROTO=../protobufs
 
-gomqttenc: go.mod main.go parse_position.go parse_telemetry.go parser.go parse_map_report.go utils.go
+gomqttenc: go.mod \
+	aes.go \
+	decode_local.go \
+	errors.go \
+	main.go \
+	parse_map_report.go \
+	parse_position.go \
+	parse_telemetry.go \
+	parser.go \
+	utils.go \
+	aesccm/main.go
 	go mod tidy; go build
 
 clean:

@@ -19,13 +19,13 @@ import (
 	"syscall"
 	"time"
 
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/rabarar/meshtastic"
 
 	"github.com/charmbracelet/log"
 
-	"github.com/rabarar/meshtool-go/public/radio"
+	_ "github.com/rabarar/meshtool-go/public/radio"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -116,22 +116,61 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 	}
 
 	log.Infof("SvsEnv|source: [%x] SvsEnv|dest: [%x]", env.Packet.From, env.Packet.To)
+	log.Infof("SvsEnv|source pubKey: [%x]", env.Packet.GetPublicKey())
 
 	// if it's a PKI message use the device ID to decrypt
-	var privKey Key
+	var privKeys []Key
+
 	if env.ChannelId == "PKI" {
-		env.ChannelId = fmt.Sprintf("!%x", env.Packet.To)
+
+		_, err := parseServiceEnvelopePayload(env.Packet.GetEncrypted())
+		if err != nil {
+			log.Error("file to parse Service Envelop Payload")
+			return
+		}
+
+		// get both sender and receiver private keys
+		toAddr := fmt.Sprintf("!%x", env.Packet.To)
+		fromAddr := fmt.Sprintf("!%x", env.Packet.From)
+
+		toAddrKey, ok := channelKeys[toAddr]
+		if !ok {
+			log.Errorf("PKI: no private key found for toAddr: [%s]", toAddr)
+			return
+		}
+		privKeys = append(privKeys, toAddrKey)
+		log.Warnf("retrieving TO key for %s [%s]", toAddr, toAddrKey.txt)
+
+		fromAddrKey, ok := channelKeys[fromAddr]
+		if !ok {
+			log.Errorf("PKI: no private key found for fromAddr: [%s]", fromAddr)
+			return
+		}
+
+		privKeys = append(privKeys, fromAddrKey)
+		log.Warnf("retrieving FROM key for %s [%s]", fromAddr, fromAddrKey.txt)
+
+	} else {
+		log.Warnf("retrieving key for %s", env.ChannelId)
+		privKey, ok := channelKeys[env.ChannelId]
+		if !ok {
+			log.Errorf("no private key found for ChannelId: [%s]", env.ChannelId)
+			return
+		}
+		log.Warnf("Decoding with key [%s]", privKey.txt)
+
+		privKeys = append(privKeys, privKey)
+
 	}
 
-	log.Warnf("retrieving key for %s", env.ChannelId)
-	privKey, ok := channelKeys[env.ChannelId]
-	if !ok {
-		log.Errorf("no private key found for ChannelId: [%s]", env.ChannelId)
-		return
+	var decryptType DecryptType
+	switch getNthTopicSegmentFromEnd(msg.Topic(), 1) {
+	case "PKI":
+		decryptType = DecryptDirect
+	default:
+		decryptType = DecryptChannel
 	}
-
-	log.Warnf("Decoding with key [%s]", privKey.txt)
-	messagePtr, err := radio.TryDecode(env.Packet, privKey.hex)
+	messagePtr, err := TryDecode(env.Packet, privKeys, decryptType)
 	if err != nil {
 		log.Error("failed to decode packet", "err", err, "payload", hex.EncodeToString(msg.Payload()))
 		return
