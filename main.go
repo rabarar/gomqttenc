@@ -123,7 +123,9 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 
 	if env.ChannelId == "PKI" {
 
-		_, err := parseServiceEnvelopePayload(env.Packet.GetEncrypted())
+		encPacket := env.Packet.GetEncrypted()
+		log.Warnf("ServicePacket Payload [%s]:[%d]", hex.EncodeToString(encPacket), len(encPacket))
+		_, err := parseServiceEnvelopePayload(encPacket)
 		if err != nil {
 			log.Error("file to parse Service Envelop Payload")
 			return

@@ -49,6 +49,7 @@ func TryDecode(packet *meshtastic.MeshPacket, keys []Key, decryptType DecryptTyp
 			ciphertext := packet.GetEncrypted()
 			log.Warnf("CIPHERTEXT: [%s][%d]", hex.EncodeToString(ciphertext), len(ciphertext))
 			log.Warnf("PacketId: [%x]", packet.Id)
+			log.Warnf("From: [%x]", packet.From)
 
 			decrypted, err = decryptCurve25519(keys, packet.From, packet.Id, packet.GetEncrypted())
 			if err != nil {
@@ -79,17 +80,18 @@ func sliceTo32ByteArray(slice []byte) (*[32]byte, error) {
 	return &array, nil
 }
 
-func decryptCurve25519(privateKeys []Key, fromNode uint32, packetID uint32, ciphertext []byte) ([]byte, error) {
-	if len(ciphertext) < 12 {
+func decryptCurve25519(privateKeys []Key, fromNode uint32, packetID uint32, payload []byte) ([]byte, error) {
+	if len(payload) < 12 {
 		return nil, errors.New("ciphertext too short for auth")
 	}
 
 	// Step 1: Auth tag is last 12 bytes
-	auth := ciphertext[len(ciphertext)-12:]
-	encryptedData := ciphertext[:len(ciphertext)-12]
+	ciphertext := payload[:len(payload)-12]
+	auth := payload[len(payload)-12:]
+	mac := auth[:8]
 
 	// Step 2: Extract extraNonce (last 4 bytes of auth)
-	extraNonce := binary.LittleEndian.Uint32(auth[8:12])
+	extraNonce := binary.LittleEndian.Uint32(auth[8:])
 
 	// Step 3: Compute shared secret
 	var receiverPriv [32]byte
@@ -118,17 +120,17 @@ func decryptCurve25519(privateKeys []Key, fromNode uint32, packetID uint32, ciph
 
 	// Step 5: Build 13-byte nonce
 	nonce := buildNonce(packetID, fromNode, extraNonce)
-	log.Warnf("nonce size is [%d]", len(nonce))
 
 	// VERIFICATION STEP
 	log.Warnf("Nonce (len %d): %x", len(nonce), nonce)
+	log.Warnf("Shared Secret: %x", sharedSecret)
 	log.Warnf("Shared key: %x", hashedKey[:])
-	log.Warnf("Ciphertext (len %d): %x", len(encryptedData), encryptedData)
-	log.Warnf("MAC: %x\n", auth[:8])
+	log.Warnf("Ciphertext (len %d): %x", len(ciphertext), ciphertext)
+	log.Warnf("MAC: %x", mac)
 	log.Warnf("ExtraNonce (parsed): %x", auth[8:12])
 
 	// Step 6: Decrypt AES-CCM using github.com/pschlump/AesCCM
-	plaintext, err := decryptCCM(hashedKey[:], nonce, encryptedData, auth[:8])
+	plaintext, err := decryptCCM(hashedKey[:], nonce, ciphertext, mac)
 	if err != nil {
 		return nil, fmt.Errorf("AES-CCM decryption failed: %w", err)
 	}

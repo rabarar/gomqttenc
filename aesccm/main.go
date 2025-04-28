@@ -2,7 +2,10 @@ package aesccm
 
 import (
 	"crypto/cipher"
+	"crypto/hmac"
+	"encoding/hex"
 	"errors"
+	"fmt"
 )
 
 type CCM struct {
@@ -25,102 +28,89 @@ func NewCCM(block cipher.Block, tagSize int, nonceSize int) (*CCM, error) {
 	}, nil
 }
 
+// Open decrypts ciphertext and verifies MAC
 func (c *CCM) Open(nonce, ciphertext, mac, aad []byte) ([]byte, error) {
 	if len(nonce) != c.nonceSize {
 		return nil, errors.New("ccm: invalid nonce length")
 	}
 	if len(mac) != c.tagSize {
-		return nil, errors.New("ccm: invalid mac length")
+		return nil, errors.New("ccm: invalid MAC length")
 	}
-
 	if len(ciphertext) == 0 {
-		return nil, errors.New("ccm: no ciphertext")
+		return nil, errors.New("ccm: empty ciphertext")
 	}
 
+	// Setup AES-CTR stream for decryption
 	L := 15 - c.nonceSize
-
-	// Build the full counter IV for CTR mode
 	iv := make([]byte, 16)
 	iv[0] = byte(L - 1)
 	copy(iv[1:], nonce)
 
 	ctr := cipher.NewCTR(c.block, iv)
-
 	plaintext := make([]byte, len(ciphertext))
 	ctr.XORKeyStream(plaintext, ciphertext)
 
-	// TODO VERIFY FAILS
-	if false {
-		// Verify the MAC
-		expectedMAC, err := c.calculateMAC(nonce, aad, plaintext)
-		if err != nil {
-			return nil, err
-		}
-		for i := 0; i < c.tagSize; i++ {
-			if expectedMAC[i] != mac[i] {
-				return nil, errors.New("ccm: authentication failed")
-			}
-		}
+	// Now compute expected MAC
+
+	// Build B0 block
+	b0 := make([]byte, 16)
+
+	//NOTIONAL flags := byte((aad != nil && len(aad) > 0) << 6) // AAD flag
+	var aadFlag byte
+	if aad != nil && len(aad) > 0 {
+		aadFlag = 1
+	}
+
+	flags := (aadFlag << 6) // Now this is lega
+	flags |= byte(((c.tagSize - 2) / 2) << 3)
+	flags |= byte(L - 1)
+	b0[0] = flags
+	copy(b0[1:1+c.nonceSize], nonce)
+	binary := uint64(len(plaintext))
+	for i := 0; i < L; i++ {
+		b0[15-i] = byte(binary & 0xff)
+		binary >>= 8
+	}
+
+	// Prepare MAC input
+	macInput := make([]byte, 0, 64)
+	macInput = append(macInput, b0...)
+	if aad != nil && len(aad) > 0 {
+		// Skipped AAD processing for now (most Meshtastic messages have no AAD)
+	}
+	macInput = append(macInput, plaintext...)
+
+	// Calculate CBC-MAC using AES block cipher
+	expectedMAC, err := c.calculateMAC(macInput)
+	if err != nil {
+		return nil, err
+	}
+
+	// Compare MACs
+	if !hmac.Equal(mac, expectedMAC[:c.tagSize]) {
+		return nil, errors.New(fmt.Sprintf("ccm: authentication failed (MAC mismatch): Expected: [%s] MAC: [%s]", hex.EncodeToString(expectedMAC[:c.tagSize]), hex.EncodeToString(mac)))
 	}
 
 	return plaintext, nil
 }
 
-func (c *CCM) calculateMAC(nonce, aad, plaintext []byte) ([]byte, error) {
-	b0 := make([]byte, 16)
-	flags := byte(0)
-	if len(aad) > 0 {
-		flags |= 0x40
-	}
-	flags |= byte(((c.tagSize - 2) / 2) << 3)
-	flags |= byte(15 - c.nonceSize)
-	b0[0] = flags
-	copy(b0[1:1+c.nonceSize], nonce)
-
-	payloadLen := uint64(len(plaintext))
-	for i := uint(0); i < uint(15-c.nonceSize); i++ {
-		b0[15-i] = byte(payloadLen & 0xff)
-		payloadLen >>= 8
+// calculateMAC generates a CBC-MAC using AES block cipher
+func (c *CCM) calculateMAC(input []byte) ([]byte, error) {
+	if len(input)%16 != 0 {
+		padLen := 16 - (len(input) % 16)
+		pad := make([]byte, padLen)
+		input = append(input, pad...)
 	}
 
-	cmac := make([]byte, 16)
-	c.block.Encrypt(cmac, b0)
+	mac := make([]byte, 16)
+	tmp := make([]byte, 16)
 
-	// Add AAD
-	if len(aad) > 0 {
-		aadLenBlock := make([]byte, 2)
-		aadLenBlock[0] = byte(len(aad) >> 8)
-		aadLenBlock[1] = byte(len(aad))
-		cmac = xorBlock(cmac, aadLenBlock)
-		copyBlock := make([]byte, 16)
-		copy(copyBlock, aad)
-		for len(copyBlock) < 16 {
-			copyBlock = append(copyBlock, 0x00)
+	for i := 0; i < len(input); i += 16 {
+		for j := 0; j < 16; j++ {
+			tmp[j] = mac[j] ^ input[i+j]
 		}
-		cmac = xorBlock(cmac, copyBlock)
-		c.block.Encrypt(cmac, cmac)
+		c.block.Encrypt(mac, tmp)
 	}
 
-	// Add plaintext
-	for i := 0; i < len(plaintext); i += 16 {
-		block := make([]byte, 16)
-		n := copy(block, plaintext[i:])
-		if n < 16 {
-			for j := n; j < 16; j++ {
-				block[j] = 0
-			}
-		}
-		cmac = xorBlock(cmac, block)
-		c.block.Encrypt(cmac, cmac)
-	}
-
-	return cmac[:c.tagSize], nil
-}
-
-func xorBlock(a, b []byte) []byte {
-	result := make([]byte, len(a))
-	for i := 0; i < len(a); i++ {
-		result[i] = a[i] ^ b[i]
-	}
-	return result
+	return mac, nil
 }
