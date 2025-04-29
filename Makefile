@@ -13,8 +13,7 @@ gomqttenc: go.mod \
 	parse_telemetry.go \
 	parser.go \
 	utils.go \
-	md/decrypt.go \
-	aesccm/main.go
+	md/decrypt.go 
 	go mod tidy; go build
 
 clean:

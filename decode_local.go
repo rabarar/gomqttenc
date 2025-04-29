@@ -1,15 +1,9 @@
 package main
 
 import (
-	"crypto/aes"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/binary"
 	"encoding/hex"
-	"errors"
 	"fmt"
 
-	"gomqttenc/aesccm"
 	"gomqttenc/md"
 
 	"github.com/charmbracelet/log"
@@ -84,110 +78,6 @@ func TryDecode(packet *meshtastic.MeshPacket, keys []Key, decryptType DecryptTyp
 	}
 }
 
-func sliceTo32ByteArray(slice []byte) (*[32]byte, error) {
-	if len(slice) != 32 {
-		return nil, fmt.Errorf("invalid key length: expected 32 bytes, got %d, [%x]", len(slice), slice)
-	}
-	var array [32]byte
-	copy(array[:], slice)
-	return &array, nil
-}
-
-func decryptCurve25519(privateKeys []Key, fromNode uint32, packetID uint32, payload []byte) ([]byte, error) {
-	if len(payload) < 12 {
-		return nil, errors.New("ciphertext too short for auth")
-	}
-
-	// Step 1: Auth tag is last 12 bytes
-	ciphertext := payload[:len(payload)-12]
-	auth := payload[len(payload)-12:]
-	mac := auth[:8]
-
-	// Step 2: Extract extraNonce (last 4 bytes of auth)
-	extraNonce := binary.LittleEndian.Uint32(auth[8:])
-
-	// Step 3: Compute shared secret
-	var receiverPriv [32]byte
-	decodedPriv, _ := base64.StdEncoding.DecodeString(privateKeys[ReceiverKeyIndex].txt)
-	copy(receiverPriv[:], decodedPriv)
-
-	// Sender's private key
-	// derive sender's public key
-	keyslice, err := sliceTo32ByteArray(privateKeys[SenderKeyIndex].hex)
-	if err != nil {
-		log.Fatal(err)
-	}
-	senderPub, err := PublicKeyFromPrivateKey(*keyslice)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Compute shared secret
-	sharedSecret, err := curve25519.X25519(receiverPriv[:], senderPub[:])
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Step 4: Hash the shared secret with SHA-256
-	hashedKey := sha256.Sum256(sharedSecret)
-
-	// Step 5: Build 13-byte nonce
-	nonce := buildNonce(packetID, fromNode, extraNonce)
-
-	// VERIFICATION STEP
-	log.Warnf("Nonce (len %d): %x", len(nonce), nonce)
-	log.Warnf("Shared Secret: %x", sharedSecret)
-	log.Warnf("Shared key: %x", hashedKey[:])
-	log.Warnf("Ciphertext (len %d): %x", len(ciphertext), ciphertext)
-	log.Warnf("MAC: %x", mac)
-	log.Warnf("ExtraNonce (parsed): %x", auth[8:12])
-
-	// Step 6: Decrypt AES-CCM using github.com/pschlump/AesCCM
-	plaintext, err := decryptCCM(hashedKey[:], nonce, ciphertext, mac)
-	if err != nil {
-		return nil, fmt.Errorf("AES-CCM decryption failed: %w", err)
-	}
-
-	return plaintext, nil
-}
-
-func decryptCCM(key, nonce, ciphertext, mac []byte) ([]byte, error) {
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return nil, fmt.Errorf("AES block creation failed: %w", err)
-	}
-
-	ccm, err := aesccm.NewCCM(block, 8, 13) // 8-byte MAC, 13-byte nonce
-	if err != nil {
-		return nil, fmt.Errorf("CCM setup failed: %w", err)
-	}
-
-	plaintext, err := ccm.Open(nonce, ciphertext, mac, nil)
-	if err != nil {
-		return nil, fmt.Errorf("CCM decryption failed: %w", err)
-	}
-
-	return plaintext, nil
-}
-
-func buildNonce(packetNum uint32, fromNode uint32, extraNonce uint32) []byte {
-	nonce := make([]byte, 13)
-
-	// packetNum low 32 bits (direct)
-	binary.LittleEndian.PutUint32(nonce[0:4], packetNum)
-
-	// full extraNonce
-	binary.LittleEndian.PutUint32(nonce[4:8], extraNonce)
-
-	// fromNode
-	binary.LittleEndian.PutUint32(nonce[8:12], fromNode)
-
-	// ⚡ DO NOT SET nonce[12]!
-	// ⚡ It should remain zero (already zero by default in Go slices)
-
-	return nonce
-}
-
 func PublicKeyFromPrivateKey(privKey [32]byte) ([32]byte, error) {
 	pubKey, err := curve25519.X25519(privKey[:], curve25519.Basepoint)
 	if err != nil {
@@ -196,4 +86,13 @@ func PublicKeyFromPrivateKey(privKey [32]byte) ([32]byte, error) {
 	var pubKeyFixed [32]byte
 	copy(pubKeyFixed[:], pubKey)
 	return pubKeyFixed, nil
+}
+
+func sliceTo32ByteArray(slice []byte) (*[32]byte, error) {
+	if len(slice) != 32 {
+		return nil, fmt.Errorf("invalid key length: expected 32 bytes, got %d, [%x]", len(slice), slice)
+	}
+	var array [32]byte
+	copy(array[:], slice)
+	return &array, nil
 }
