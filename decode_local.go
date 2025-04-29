@@ -9,7 +9,8 @@ import (
 	"errors"
 	"fmt"
 
-	myccm "gomqttenc/aesccm"
+	"gomqttenc/aesccm"
+	"gomqttenc/md"
 
 	"github.com/charmbracelet/log"
 	"github.com/rabarar/meshtastic"
@@ -51,7 +52,19 @@ func TryDecode(packet *meshtastic.MeshPacket, keys []Key, decryptType DecryptTyp
 			log.Warnf("PacketId: [%x]", packet.Id)
 			log.Warnf("From: [%x]", packet.From)
 
-			decrypted, err = decryptCurve25519(keys, packet.From, packet.Id, packet.GetEncrypted())
+			// Sender's private key
+			// derive sender's public key
+			keyslice, err := sliceTo32ByteArray(keys[SenderKeyIndex].hex)
+			if err != nil {
+				log.Fatal(err)
+			}
+			senderPub, err := PublicKeyFromPrivateKey(*keyslice)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			decrypted, err = md.DecryptCurve25519(packet.From, packet.Id, senderPub[:], keys[ReceiverKeyIndex].hex, packet.GetEncrypted())
+
 			if err != nil {
 				log.Warnf("Failed decrypting packet: %s", err)
 				return nil, ErrDecrypt
@@ -137,13 +150,14 @@ func decryptCurve25519(privateKeys []Key, fromNode uint32, packetID uint32, payl
 
 	return plaintext, nil
 }
+
 func decryptCCM(key, nonce, ciphertext, mac []byte) ([]byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
 		return nil, fmt.Errorf("AES block creation failed: %w", err)
 	}
 
-	ccm, err := myccm.NewCCM(block, 8, 13) // 8-byte MAC, 13-byte nonce
+	ccm, err := aesccm.NewCCM(block, 8, 13) // 8-byte MAC, 13-byte nonce
 	if err != nil {
 		return nil, fmt.Errorf("CCM setup failed: %w", err)
 	}
