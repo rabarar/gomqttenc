@@ -70,7 +70,7 @@ func parseTelemetryMessage(msg string) (*TelemetryMessage, error) {
 	case strings.Contains(msg, "environment_metrics:{"):
 		tm.Type = EnvironmentMetricsType
 		metrics := EnvironmentMetrics{}
-		re := regexp.MustCompile(`temperature:([\d.]+) relative_humidity:([\d.]+)`)
+		re := regexp.MustCompile(`temperature:([\d.]+)\s+relative_humidity:([\d.]+)`)
 		match := re.FindStringSubmatch(msg)
 		if len(match) != 3 {
 			return nil, fmt.Errorf("failed to parse environment_metrics")
