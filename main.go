@@ -37,6 +37,8 @@ type TelegrafChannelMessage interface{}
 
 var (
 	ErrUnknownMessageType = errors.New("unknown message type")
+	ErrMeshHandlerError   = errors.New("failed to handle Mesh Topc")
+	ErrHandleRTL433Data   = errors.New("failed to handle RTL433 Topc")
 	channelKeys           = map[string]Key{}
 	telegrafChannel       = make(chan TelegrafChannelMessage)
 )
@@ -44,7 +46,7 @@ var (
 // Application Config
 type Config struct {
 	Broker      string              `json:"broker"`
-	Topic       string              `json:"topic"`
+	Topics      map[string]byte     `json:"topics"`
 	ClientID    string              `json:"clientID"`
 	Username    string              `json:"username"`
 	Password    string              `json:"password"`
@@ -73,18 +75,38 @@ func loadConfig(filename string) (*Config, error) {
 
 // MQTT callback for message handling
 func messageHandler(client mqtt.Client, msg mqtt.Message) {
-	log.Printf("Received message from topic: %s", msg.Topic())
+	log.Infof("Received MQTT message from topic: \x1b[33m%s\x1b[0m", msg.Topic())
 
+	var err error
+	switch getRootTopic(msg.Topic()) {
+	case "msh":
+		err = handleMeshtasticTopics(msg)
+		if err != nil {
+			log.Warnf("Failed to Handle Meshtastic Message: [%s]", err)
+		}
+	case "rtl_433":
+		log.Infof("HANDLE RTL_433: Payload: [\x1b[33m%s\x1b[0m]", msg.Payload())
+		err = handleRTL433Topics(msg)
+		if err != nil {
+			log.Warnf("Failed to Handle RTL_433 Message: [%s]", err)
+		}
+	default:
+		log.Warnf("unknown topic: [%s]", msg.Topic())
+	}
+
+}
+
+func handleMeshtasticTopics(msg mqtt.Message) error {
 	var env meshtastic.ServiceEnvelope
 	err := proto.Unmarshal(msg.Payload(), &env)
 	if err != nil {
-		log.Printf("Failed to parse MeshPacket: Topic: [%s],  %v", msg.Topic(), err)
-		return
+		log.Warnf("Failed to parse MeshPacket: Topic: [%s],  %v", msg.Topic(), err)
+		return ErrMeshHandlerError
 	}
 
 	if env.Packet == nil {
 		log.Error("no packet in Service Envelop")
-		return
+		return ErrMeshHandlerError
 	}
 
 	log.Infof("SvsEnv|source: [%x] SvsEnv|dest: [%x]", env.Packet.From, env.Packet.To)
@@ -100,7 +122,7 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 		_, err := parseServiceEnvelopePayload(encPacket)
 		if err != nil {
 			log.Error("file to parse Service Envelop Payload")
-			return
+			return ErrMeshHandlerError
 		}
 
 		// get both sender and receiver private keys
@@ -110,7 +132,7 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 		toAddrKey, ok := channelKeys[toAddr]
 		if !ok {
 			log.Errorf("PKI: no private key found for toAddr: [%s]", toAddr)
-			return
+			return ErrMeshHandlerError
 		}
 		privKeys = append(privKeys, toAddrKey)
 		log.Warnf("retrieving TO key for %s [%s]", toAddr, toAddrKey.txt)
@@ -118,7 +140,7 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 		fromAddrKey, ok := channelKeys[fromAddr]
 		if !ok {
 			log.Errorf("PKI: no private key found for fromAddr: [%s]", fromAddr)
-			return
+			return ErrMeshHandlerError
 		}
 
 		privKeys = append(privKeys, fromAddrKey)
@@ -129,7 +151,7 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 		privKey, ok := channelKeys[env.ChannelId]
 		if !ok {
 			log.Errorf("no private key found for ChannelId: [%s]", env.ChannelId)
-			return
+			return ErrMeshHandlerError
 		}
 		log.Warnf("Decoding with key [%s]", privKey.txt)
 
@@ -147,14 +169,14 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 	messagePtr, err := TryDecode(env.Packet, privKeys, decryptType)
 	if err != nil {
 		log.Error("failed to decode packet", "err", err, "payload", hex.EncodeToString(msg.Payload()))
-		return
+		return ErrMeshHandlerError
 	}
 
 	if out, err := processMessage(messagePtr); err != nil {
 		if messagePtr.Portnum != 0 {
 			log.Error("failed to process message", "err", err, "source", messagePtr.Source, "dest", messagePtr.Dest, "payload", hex.EncodeToString(msg.Payload()), "topic", msg.Topic(), "channel", env.ChannelId, "portnum", messagePtr.Portnum.String())
 		}
-		return
+		return ErrMeshHandlerError
 	} else {
 		log.Info(out, "topic", msg.Topic, "source", messagePtr.Source, "dest", messagePtr.Dest, "channel", env.ChannelId, "portnum", messagePtr.Portnum.String())
 
@@ -171,7 +193,7 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 			parsed, err := parseMapReportMessage(out)
 			if err != nil {
 				fmt.Println("Error parsing MAP_REPORT:", err)
-				return
+				return ErrMeshHandlerError
 			}
 			log.Infof("Parsed Map Report Message:\n%+v\n", parsed)
 
@@ -194,7 +216,7 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 			parsed, err := parsePositionMessage(out)
 			if err != nil {
 				fmt.Println("Error:", err)
-				return
+				return ErrMeshHandlerError
 			}
 
 			telegrafChannel <- PositionMessage{
@@ -242,10 +264,37 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 
 				default:
 					fmt.Println("Unknown type")
+					return ErrMeshHandlerError
 				}
 			}
 		}
 	}
+	return nil
+}
+
+func handleRTL433Topics(msg mqtt.Message) error {
+
+	var sd RTL433SensorData
+
+	// Unmarshal the JSON into the struct
+	if err := json.Unmarshal([]byte(msg.Payload()), &sd); err != nil {
+		log.Fatalf("Error unmarshaling JSON: %v", err)
+		return ErrHandleRTL433Data
+	}
+
+	// publish to Telegraf
+	telegrafChannel <- RTL433SensorData{
+		Time:         sd.Time,
+		Model:        sd.Model,
+		ID:           sd.ID,
+		BatteryOK:    sd.BatteryOK,
+		TemperatureC: sd.TemperatureC,
+		Humidity:     sd.Humidity,
+		Status:       sd.Status,
+		MIC:          sd.MIC,
+	}
+
+	return nil
 }
 
 // Meshtastic message processing function unmarshaling and return the contents in a string
@@ -295,7 +344,7 @@ func processMessage(message *meshtastic.Data) (string, error) {
 		return r.String(), err
 	}
 
-	log.Printf("unknown messsage type: %d\n", message.Portnum)
+	log.Warn("Unknown messsage type: %d\n", message.Portnum)
 	return "", ErrUnknownMessageType
 }
 
@@ -353,11 +402,17 @@ func startPublisher(ctx context.Context, wg *sync.WaitGroup, telegrafURL string,
 					"LatitudeI=%d,LongitudeI=%d,Altitude=%d,Time=%d,LocationSource=\"%s\",Timestamp=%d,SeqNumber=%d,SatsInView=%d,GroundSpeed=%d,GroundTrack=%d,PrecisionBits=%d %d",
 					metric.Envelope.Device,
 					metric.LatitudeI, metric.LongitudeI, metric.Altitude, metric.Time, metric.LocationSource, ts, seq, sats, metric.GroundSpeed, metric.GroundTrack, metric.PrecisionBits, timestamp)
+
+			case RTL433SensorData:
+				line = fmt.Sprintf("rtl_433,model=\"%s\",ID=%d "+
+					"TemperatureC=%f,Humidity=%d,BatteryOK=%d,Status=%d,MIC=\"%s\"",
+					metric.Model, metric.ID, metric.TemperatureC, metric.Humidity, metric.BatteryOK, metric.Status, metric.MIC)
 			default:
 				log.Error("Unknown Telegraf Channel Message Type received -- no message published: %T", msg)
 				return
 			}
 
+			// create and send request to the telegraf server
 			req, err := http.NewRequest("POST", telegrafURL, bytes.NewBuffer([]byte(line)))
 			if err != nil {
 				log.Error("Error creating request:", err)
@@ -376,10 +431,10 @@ func startPublisher(ctx context.Context, wg *sync.WaitGroup, telegrafURL string,
 			}
 
 			// TODO this isn't it!
-			if resp.Status == "200" || resp.Status == "204" {
+			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
 				log.Infof("metric published to Telegraf: %s", line)
 			} else {
-				log.Infof("metric published to Telegraf Status: %s", resp.Status)
+				log.Warnf("FAILED metric published to Telegraf StatusCode: %d, Status: %s", resp.StatusCode, resp.Status)
 				log.Infof("metric published to Telegraf Line: [%s]", line)
 			}
 
@@ -460,13 +515,21 @@ func main() {
 
 	log.Info("Connected to MQTT broker")
 
-	// subscripe to MQTT Topic and process in messageHandler()
-	if token := client.Subscribe(cfg.Topic, 0, nil); token.Wait() && token.Error() != nil {
-		log.Fatal("Subscription error:", token.Error())
+	// check topics exist
+	if len(cfg.Topics) == 0 {
+		log.Fatal("Error no topics listed in json file, aborting")
 		os.Exit(1)
 	}
 
-	log.Infof("Subscribed to topic '%s'", cfg.Topic)
+	for topic, QoS := range cfg.Topics {
+		log.Infof("Subscribed to topic: ['%s'] with Qos: [%d]", topic, QoS)
+	}
+
+	// subscripe to MQTT Topic and process in messageHandler()
+	if token := client.SubscribeMultiple(cfg.Topics, nil); token.Wait() && token.Error() != nil {
+		log.Fatal("Subscription error:", token.Error())
+		os.Exit(1)
+	}
 
 	// idle and wait for shutdowns
 	go func() {

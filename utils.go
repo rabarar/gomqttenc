@@ -14,6 +14,14 @@ type ParsedPacket struct {
 	FullNonceRaw []byte // Full 4 bytes of extraNonce (debug)
 }
 
+func getRootTopic(topic string) string {
+	parts := strings.Split(topic, "/")
+	if len(parts) == 0 {
+		return ""
+	}
+	return parts[0]
+}
+
 func getNthTopicSegmentFromEnd(topic string, n int) string {
 	parts := strings.Split(topic, "/")
 	if len(parts) == 0 {
