@@ -189,6 +189,24 @@ func handleMeshtasticTopics(msg mqtt.Message) error {
 		}
 
 		switch messagePtr.Portnum {
+		case meshtastic.PortNum_NODEINFO_APP:
+			parsed, err := parseNodeInfoMessage(out)
+			if err != nil {
+				fmt.Println("Error parsing NODEINFO:", err)
+				return ErrMeshHandlerError
+			}
+			log.Infof("Parsed NodeInfo Report Message:\n%+v\n", parsed)
+
+			telegrafChannel <- NodeInfoMessage{
+				Envelope:  messageEnv,
+				Id:        parsed.Id,
+				LongName:  parsed.LongName,
+				ShortName: parsed.ShortName,
+				MACaddr:   parsed.MACaddr,
+				HWModel:   parsed.HWModel,
+				PublicKey: parsed.PublicKey,
+			}
+
 		case meshtastic.PortNum_MAP_REPORT_APP:
 			parsed, err := parseMapReportMessage(out)
 			if err != nil {
@@ -360,6 +378,11 @@ func startPublisher(ctx context.Context, wg *sync.WaitGroup, telegrafURL string,
 			var line string
 
 			switch metric := msg.(type) {
+			case NodeInfoMessage:
+				line = fmt.Sprintf("device_metrics,device=%x,channel=LongFast,portnum=NODEINFO_APP "+
+					"id=\"%s\",long_name=\"%s\",short_name=\"%s\",macaddr=\"%s\",hw_model=\"%s\",public_key=\"֡%s\"",
+					metric.Envelope.Device, metric.Id, metric.LongName, metric.ShortName, metric.MACaddr, metric.HWModel, metric.PublicKey)
+
 			case DeviceMetrics:
 				line = fmt.Sprintf("device_metrics,device=%x,channel=LongFast,portnum=TELEMETRY_APP "+
 					"battery_level=%d,voltage=%f,channel_utilization=%f,air_util_tx=%f,uptime_seconds=%d %d",
