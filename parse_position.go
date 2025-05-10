@@ -8,6 +8,7 @@ import (
 )
 
 type PositionMessage struct {
+	Envelope       MessageEnvelope
 	LatitudeI      int
 	LongitudeI     int
 	Altitude       int

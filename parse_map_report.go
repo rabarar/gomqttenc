@@ -7,6 +7,7 @@ import (
 )
 
 type MapReportMessage struct {
+	Envelope            MessageEnvelope
 	LongName            string
 	ShortName           string
 	HwModel             string

@@ -21,6 +21,7 @@ type TelemetryMessage struct {
 }
 
 type DeviceMetrics struct {
+	Envelope           MessageEnvelope
 	BatteryLevel       int
 	Voltage            float64
 	ChannelUtilization float64
@@ -29,6 +30,7 @@ type DeviceMetrics struct {
 }
 
 type EnvironmentMetrics struct {
+	Envelope         MessageEnvelope
 	Temperature      float64
 	RelativeHumidity float64
 }

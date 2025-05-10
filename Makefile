@@ -1,7 +1,7 @@
 
 MESH_PROTO=../protobufs
 
-all: gomqttenc
+all: gomqttenc lint
 
 gomqttenc: go.mod \
 	aes.go \
@@ -11,10 +11,12 @@ gomqttenc: go.mod \
 	parse_map_report.go \
 	parse_position.go \
 	parse_telemetry.go \
-	parser.go \
 	utils.go \
 	md/decrypt.go 
 	go mod tidy; go build
+
+lint:
+	 golangci-lint run
 
 clean:
 	rm -f gomqttenc

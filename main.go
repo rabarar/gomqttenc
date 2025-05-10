@@ -3,10 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
-	"crypto/aes"
-	"crypto/cipher"
 	"encoding/base64"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -29,33 +26,30 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// PKI private Crypto key in both PEM and Hex Format
 type Key struct {
 	hex []byte
 	txt string
 }
 
+// Generic Telegraf Channel Message to send to publisher
+type TelegrafChannelMessage interface{}
+
 var (
 	ErrUnknownMessageType = errors.New("unknown message type")
 	channelKeys           = map[string]Key{}
-	lineCh                = make(chan Metric)
+	telegrafChannel       = make(chan TelegrafChannelMessage)
 )
 
+// Application Config
 type Config struct {
-	Broker   string              `json:"broker"`
-	Topic    string              `json:"topic"`
-	ClientID string              `json:"clientID"`
-	Username string              `json:"username"`
-	Password string              `json:"password"`
-	B64Keys  []map[string]string `json:"b64Key"`
-}
-
-type Metric struct {
-	Device             string
-	BatteryLevel       int
-	Voltage            float64
-	ChannelUtilization float64
-	AirUtilTx          float64
-	UptimeSeconds      int
+	Broker      string              `json:"broker"`
+	Topic       string              `json:"topic"`
+	ClientID    string              `json:"clientID"`
+	Username    string              `json:"username"`
+	Password    string              `json:"password"`
+	B64Keys     []map[string]string `json:"b64Key"`
+	TelegrafURL string              `json:"telegrafURL"`
 }
 
 func loadConfig(filename string) (*Config, error) {
@@ -63,7 +57,12 @@ func loadConfig(filename string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer func() {
+		err = file.Close()
+		if err != nil {
+			log.Warnf("failed to close config file")
+		}
+	}()
 
 	var cfg Config
 	if err := json.NewDecoder(file).Decode(&cfg); err != nil {
@@ -72,41 +71,14 @@ func loadConfig(filename string) (*Config, error) {
 	return &cfg, nil
 }
 
-func decryptMeshtasticAESGCM(channelKey []byte, senderID uint32, packetID uint32, ciphertextWithTag []byte) (string, error) {
-	if len(channelKey) != 16 {
-		return "", fmt.Errorf("channel key must be 16 bytes for AES-128")
-	}
-
-	block, err := aes.NewCipher(channelKey)
-	if err != nil {
-		return "", fmt.Errorf("error creating cipher: %v", err)
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", fmt.Errorf("error creating GCM: %v", err)
-	}
-
-	nonce := make([]byte, 12)
-	binary.LittleEndian.PutUint32(nonce[0:4], senderID)
-	binary.LittleEndian.PutUint32(nonce[4:8], packetID)
-	// last 4 bytes of nonce remain zero
-
-	plaintext, err := gcm.Open(nil, nonce, ciphertextWithTag, nil)
-	if err != nil {
-		return "", fmt.Errorf("decryption failed: %v", err)
-	}
-
-	return string(plaintext), nil
-}
-
+// MQTT callback for message handling
 func messageHandler(client mqtt.Client, msg mqtt.Message) {
 	log.Printf("Received message from topic: %s", msg.Topic())
 
 	var env meshtastic.ServiceEnvelope
 	err := proto.Unmarshal(msg.Payload(), &env)
 	if err != nil {
-		log.Printf("Failed to parse MeshPacket: %v", err)
+		log.Printf("Failed to parse MeshPacket: Topic: [%s],  %v", msg.Topic(), err)
 		return
 	}
 
@@ -186,18 +158,14 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 	} else {
 		log.Info(out, "topic", msg.Topic, "source", messagePtr.Source, "dest", messagePtr.Dest, "channel", env.ChannelId, "portnum", messagePtr.Portnum.String())
 
-		/* TODO
-		lineCh <- Metric{
-			Device:             device,
-			BatteryLevel:       batteryLevel,
-			Voltage:            voltage,
-			ChannelUtilization: channelUtilization,
-			AirUtilTx:          airUtilTx,
-			UptimeSeconds:      uptimeSeconds,
-		}
-		*/
-
 		log.Infof("parsing [%s]", out)
+		messageEnv := MessageEnvelope{
+			Device: env.Packet.From,
+			From:   env.Packet.From,
+			To:     env.Packet.To,
+			Topic:  msg.Topic(),
+		}
+
 		switch messagePtr.Portnum {
 		case meshtastic.PortNum_MAP_REPORT_APP:
 			parsed, err := parseMapReportMessage(out)
@@ -205,26 +173,73 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 				fmt.Println("Error parsing MAP_REPORT:", err)
 				return
 			}
-			fmt.Printf("Parsed Map Report Message:\n%+v\n", parsed)
+			log.Infof("Parsed Map Report Message:\n%+v\n", parsed)
+
+			telegrafChannel <- MapReportMessage{
+				Envelope:            messageEnv,
+				LongName:            parsed.LongName,
+				ShortName:           parsed.ShortName,
+				HwModel:             parsed.HwModel,
+				FirmwareVersion:     parsed.FirmwareVersion,
+				Region:              parsed.Region,
+				HasDefaultChannel:   parsed.HasDefaultChannel,
+				LatitudeI:           parsed.LatitudeI,
+				LongitudeI:          parsed.LongitudeI,
+				Altitude:            parsed.Altitude,
+				PositionPrecision:   parsed.PositionPrecision,
+				NumOnlineLocalNodes: parsed.NumOnlineLocalNodes,
+			}
+
 		case meshtastic.PortNum_POSITION_APP:
 			parsed, err := parsePositionMessage(out)
 			if err != nil {
 				fmt.Println("Error:", err)
 				return
 			}
-			fmt.Printf("Parsed Position Message:\n%+v\n", parsed)
+
+			telegrafChannel <- PositionMessage{
+				Envelope:       messageEnv,
+				LatitudeI:      parsed.LatitudeI,
+				LongitudeI:     parsed.LongitudeI,
+				Altitude:       parsed.Altitude,
+				Time:           parsed.Time,
+				LocationSource: parsed.LocationSource,
+				Timestamp:      parsed.Timestamp,
+				SeqNumber:      parsed.SeqNumber,
+				SatsInView:     parsed.SatsInView,
+				GroundSpeed:    parsed.GroundSpeed,
+				GroundTrack:    parsed.GroundTrack,
+				PrecisionBits:  parsed.PrecisionBits,
+			}
+
 		case meshtastic.PortNum_TELEMETRY_APP:
 			parsed, err := parseTelemetryMessage(out)
 			if err != nil {
 				fmt.Println("Parse error:", err)
 			} else {
-				fmt.Printf("Parsed message: %+v\n", parsed)
+				log.Infof("Parsed message: %+v\n", parsed)
 
 				switch v := parsed.Parsed.(type) {
 				case DeviceMetrics:
-					fmt.Println("DeviceMetrics - Battery:", v.BatteryLevel, "Voltage:", v.Voltage)
+
+					telegrafChannel <- DeviceMetrics{
+						Envelope:           messageEnv,
+						BatteryLevel:       v.BatteryLevel,
+						Voltage:            v.Voltage,
+						ChannelUtilization: v.ChannelUtilization,
+						AirUtilTx:          v.AirUtilTx,
+						UptimeSeconds:      v.UptimeSeconds,
+					}
+
 				case EnvironmentMetrics:
-					fmt.Println("EnvironmentMetrics - Temp:", v.Temperature, "Humidity:", v.RelativeHumidity)
+					log.Infof("EnvironmentMetrics - Temp: %f Humidity: %f", v.Temperature, v.RelativeHumidity)
+
+					telegrafChannel <- EnvironmentMetrics{
+						Envelope:         messageEnv,
+						Temperature:      v.Temperature,
+						RelativeHumidity: v.RelativeHumidity,
+					}
+
 				default:
 					fmt.Println("Unknown type")
 				}
@@ -233,6 +248,7 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 	}
 }
 
+// Meshtastic message processing function unmarshaling and return the contents in a string
 func processMessage(message *meshtastic.Data) (string, error) {
 	var err error
 	if message.Portnum == meshtastic.PortNum_NODEINFO_APP {
@@ -283,20 +299,66 @@ func processMessage(message *meshtastic.Data) (string, error) {
 	return "", ErrUnknownMessageType
 }
 
-func startPublisher(ctx context.Context, wg *sync.WaitGroup, lineCh <-chan Metric) {
+// receive incoming telegraf Messages on the channel and publish to the Telegraf server
+func startPublisher(ctx context.Context, wg *sync.WaitGroup, telegrafURL string, telegrafChannel chan TelegrafChannelMessage) {
 	defer wg.Done()
 
 	for {
+
 		select {
-		case metric := <-lineCh:
+		case msg := <-telegrafChannel:
 			timestamp := time.Now().UnixNano()
+			var line string
 
-			line := fmt.Sprintf("device_metrics,device=%s,channel=LongFast,portnum=TELEMETRY_APP "+
-				"battery_level=%d,voltage=%f,channel_utilization=%f,air_util_tx=%f,uptime_seconds=%d %d",
-				metric.Device, metric.BatteryLevel, metric.Voltage,
-				metric.ChannelUtilization, metric.AirUtilTx, metric.UptimeSeconds, timestamp)
+			switch metric := msg.(type) {
+			case DeviceMetrics:
+				line = fmt.Sprintf("device_metrics,device=%x,channel=LongFast,portnum=TELEMETRY_APP "+
+					"battery_level=%d,voltage=%f,channel_utilization=%f,air_util_tx=%f,uptime_seconds=%d %d",
+					metric.Envelope.Device, metric.BatteryLevel, metric.Voltage,
+					metric.ChannelUtilization, metric.AirUtilTx, metric.UptimeSeconds, timestamp)
 
-			req, err := http.NewRequest("POST", "http://192.168.0.159:8186/telegraf", bytes.NewBuffer([]byte(line)))
+			case EnvironmentMetrics:
+				line = fmt.Sprintf("device_metrics,device=%x,channel=LongFast,portnum=TELEMETRY_APP "+
+					"temperature=%f,relative_humidity=%f %d",
+					metric.Envelope.Device, metric.Temperature, metric.RelativeHumidity, timestamp)
+
+			case MapReportMessage:
+				line = fmt.Sprintf("device_metrics,device=%x,channel=LongFast,portnum=MAP_REPORT_APP "+
+					"long_name=\"%s\",short_name=\"%s\",HwModel=\"%s\",FirmwareVersion=\"%s\",Region=\"%s\",HasDefaultChannel=%t,LatitudeI=%d,LongitudeI=%d,Altitude=%d,PositionPrecision=%d,NumOnlineLocalNodes=%d %d",
+					metric.Envelope.Device, metric.LongName, metric.ShortName, metric.HwModel, metric.FirmwareVersion,
+					metric.Region, metric.HasDefaultChannel, metric.LatitudeI, metric.LongitudeI, metric.Altitude,
+					metric.PositionPrecision, metric.NumOnlineLocalNodes, timestamp)
+
+			case PositionMessage:
+				var ts int64
+				var seq, sats int
+
+				if metric.Timestamp == nil {
+					ts = 0
+				} else {
+					ts = *metric.Timestamp
+				}
+				if metric.SeqNumber == nil {
+					seq = 0
+				} else {
+					seq = *metric.SeqNumber
+				}
+				if metric.SatsInView == nil {
+					sats = 0
+				} else {
+					sats = *metric.SatsInView
+				}
+
+				line = fmt.Sprintf("device_metrics,device=%x,channel=LongFast,portnum=POSITION_APP "+
+					"LatitudeI=%d,LongitudeI=%d,Altitude=%d,Time=%d,LocationSource=\"%s\",Timestamp=%d,SeqNumber=%d,SatsInView=%d,GroundSpeed=%d,GroundTrack=%d,PrecisionBits=%d %d",
+					metric.Envelope.Device,
+					metric.LatitudeI, metric.LongitudeI, metric.Altitude, metric.Time, metric.LocationSource, ts, seq, sats, metric.GroundSpeed, metric.GroundTrack, metric.PrecisionBits, timestamp)
+			default:
+				log.Error("Unknown Telegraf Channel Message Type received -- no message published: %T", msg)
+				return
+			}
+
+			req, err := http.NewRequest("POST", telegrafURL, bytes.NewBuffer([]byte(line)))
 			if err != nil {
 				log.Error("Error creating request:", err)
 				continue
@@ -308,10 +370,18 @@ func startPublisher(ctx context.Context, wg *sync.WaitGroup, lineCh <-chan Metri
 				log.Error("Error posting to Telegraf:", err)
 				continue
 			}
-			resp.Body.Close()
+			err = resp.Body.Close()
+			if err != nil {
+				log.Error("Error failed to close Request Body:", err)
+			}
 
-			log.Infof("Posted metric: %s", line)
-			log.Infof("Response status: %s", resp.Status)
+			// TODO this isn't it!
+			if resp.Status == "200" || resp.Status == "204" {
+				log.Infof("metric published to Telegraf: %s", line)
+			} else {
+				log.Infof("metric published to Telegraf Status: %s", resp.Status)
+				log.Infof("metric published to Telegraf Line: [%s]", line)
+			}
 
 		case <-ctx.Done():
 			log.Info("Publisher received shutdown signal (cancellled).")
@@ -370,7 +440,7 @@ func main() {
 
 	// start telegraf publisher
 	log.Info("starting telegraf publisher")
-	go startPublisher(ctx, &wg, lineCh)
+	go startPublisher(ctx, &wg, cfg.TelegrafURL, telegrafChannel)
 
 	// setup MQTT connection
 	opts := mqtt.NewClientOptions()
@@ -398,7 +468,7 @@ func main() {
 
 	log.Infof("Subscribed to topic '%s'", cfg.Topic)
 
-	// idle
+	// idle and wait for shutdowns
 	go func() {
 		for {
 			select {
