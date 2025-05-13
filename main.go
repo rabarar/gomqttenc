@@ -101,6 +101,7 @@ func handleMeshtasticTopics(msg mqtt.Message) error {
 	err := proto.Unmarshal(msg.Payload(), &env)
 	if err != nil {
 		log.Warnf("Failed to parse MeshPacket: Topic: [%s],  %v", msg.Topic(), err)
+		log.Warnf("Failed payload is likely JSON and not a ProtoBuf: [%s]", msg.Payload())
 		return ErrMeshHandlerError
 	}
 
@@ -118,7 +119,7 @@ func handleMeshtasticTopics(msg mqtt.Message) error {
 	if env.ChannelId == "PKI" {
 
 		encPacket := env.Packet.GetEncrypted()
-		log.Warnf("ServicePacket Payload [%s]:[%d]", hex.EncodeToString(encPacket), len(encPacket))
+		log.Infof("ServicePacket Payload [%s]:[%d]", hex.EncodeToString(encPacket), len(encPacket))
 		_, err := parseServiceEnvelopePayload(encPacket)
 		if err != nil {
 			log.Error("file to parse Service Envelop Payload")
@@ -135,7 +136,7 @@ func handleMeshtasticTopics(msg mqtt.Message) error {
 			return ErrMeshHandlerError
 		}
 		privKeys = append(privKeys, toAddrKey)
-		log.Warnf("retrieving TO key for %s [%s]", toAddr, toAddrKey.txt)
+		log.Debugf("retrieving TO key for %s [%s]", toAddr, toAddrKey.txt)
 
 		fromAddrKey, ok := channelKeys[fromAddr]
 		if !ok {
@@ -144,16 +145,16 @@ func handleMeshtasticTopics(msg mqtt.Message) error {
 		}
 
 		privKeys = append(privKeys, fromAddrKey)
-		log.Warnf("retrieving FROM key for %s [%s]", fromAddr, fromAddrKey.txt)
+		log.Debugf("retrieving FROM key for %s [%s]", fromAddr, fromAddrKey.txt)
 
 	} else {
-		log.Warnf("retrieving key for %s", env.ChannelId)
+		log.Debugf("retrieving key for %s", env.ChannelId)
 		privKey, ok := channelKeys[env.ChannelId]
 		if !ok {
 			log.Errorf("no private key found for ChannelId: [%s]", env.ChannelId)
 			return ErrMeshHandlerError
 		}
-		log.Warnf("Decoding with key [%s]", privKey.txt)
+		log.Debugf("Decoding with key [%s]", privKey.txt)
 
 		privKeys = append(privKeys, privKey)
 
@@ -428,8 +429,8 @@ func startPublisher(ctx context.Context, wg *sync.WaitGroup, telegrafURL string,
 
 			case RTL433SensorData:
 				line = fmt.Sprintf("rtl_433,model=\"%s\",ID=%d "+
-					"TemperatureC=%f,Humidity=%d,BatteryOK=%d,Status=%d,MIC=\"%s\"",
-					metric.Model, metric.ID, metric.TemperatureC, metric.Humidity, metric.BatteryOK, metric.Status, metric.MIC)
+					"TemperatureC=%f,Humidity=%d,BatteryOK=%d,Status=%d,MIC=\"%s\" %d",
+					metric.Model, metric.ID, metric.TemperatureC, metric.Humidity, metric.BatteryOK, metric.Status, metric.MIC, timestamp)
 			default:
 				log.Error("Unknown Telegraf Channel Message Type received -- no message published: %T", msg)
 				return
@@ -455,10 +456,9 @@ func startPublisher(ctx context.Context, wg *sync.WaitGroup, telegrafURL string,
 
 			// TODO this isn't it!
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-				log.Infof("metric published to Telegraf: %s", line)
+				log.Infof("metric published to Telegraf: %s", replaceBinaryWithHex(line))
 			} else {
-				log.Warnf("FAILED metric published to Telegraf StatusCode: %d, Status: %s", resp.StatusCode, resp.Status)
-				log.Infof("metric published to Telegraf Line: [%s]", line)
+				log.Warnf("FAILED metric published to Telegraf Line: [%s], StatusCode: %d, Status: %s", replaceBinaryWithHex(line), resp.StatusCode, resp.Status)
 			}
 
 		case <-ctx.Done():

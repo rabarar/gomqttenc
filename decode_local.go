@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/hex"
 	"fmt"
 
 	"gomqttenc/md"
@@ -41,10 +40,12 @@ func TryDecode(packet *meshtastic.MeshPacket, keys []Key, decryptType DecryptTyp
 				return nil, ErrDecrypt
 			}
 		case DecryptDirect:
-			ciphertext := packet.GetEncrypted()
-			log.Warnf("CIPHERTEXT: [%s][%d]", hex.EncodeToString(ciphertext), len(ciphertext))
-			log.Warnf("PacketId: [%x]", packet.Id)
-			log.Warnf("From: [%x]", packet.From)
+			/*
+				ciphertext := packet.GetEncrypted()
+				log.Warnf("CIPHERTEXT: [%s][%d]", hex.EncodeToString(ciphertext), len(ciphertext))
+				log.Warnf("PacketId: [%x]", packet.Id)
+				log.Warnf("From: [%x]", packet.From)
+			*/
 
 			// Sender's private key
 			// derive sender's public key

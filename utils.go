@@ -2,9 +2,8 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"strings"
-
-	"github.com/charmbracelet/log"
 )
 
 type ParsedPacket struct {
@@ -55,10 +54,26 @@ func parseServiceEnvelopePayload(payload []byte) (*ParsedPacket, error) {
 	}
 
 	// Debug print
-	log.Warnf("Parsing ServiceEnvelope payload:")
-	log.Warnf("- Ciphertext (%d bytes): %x", len(parsed.Ciphertext), parsed.Ciphertext)
-	log.Warnf("- MAC (8 bytes): %x", parsed.MAC)
-	log.Warnf("- ExtraNonce (4 bytes raw): %x (using byte: %02x)", parsed.FullNonceRaw, parsed.ExtraNonce)
+	/*
+		log.Warnf("Parsing ServiceEnvelope payload:")
+		log.Warnf("- Ciphertext (%d bytes): %x", len(parsed.Ciphertext), parsed.Ciphertext)
+		log.Warnf("- MAC (8 bytes): %x", parsed.MAC)
+		log.Warnf("- ExtraNonce (4 bytes raw): %x (using byte: %02x)", parsed.FullNonceRaw, parsed.ExtraNonce)
+	*/
 
 	return parsed, nil
+}
+
+// replaceBinaryWithHex scans the string and replaces any non-printable characters
+// (outside ASCII 32-126) with their hex-encoded form.
+func replaceBinaryWithHex(input string) string {
+	var b strings.Builder
+	for _, r := range input {
+		if r >= 32 && r <= 126 {
+			b.WriteRune(r)
+		} else {
+			b.WriteString(fmt.Sprintf("\\x%02X", r))
+		}
+	}
+	return b.String()
 }
