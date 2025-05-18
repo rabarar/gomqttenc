@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -16,6 +17,7 @@ type NodeInfoMessage struct {
 	PublicKey []byte
 }
 
+//nolint:unused
 func unescapeBytes(escaped string) ([]byte, error) {
 	var result []byte
 	for i := 0; i < len(escaped); {
@@ -57,21 +59,15 @@ func parseNodeInfoMessage(input string) (*NodeInfoMessage, error) {
 		}
 	}
 
-	macaddr, err := unescapeBytes(data["macaddr"])
-	if err != nil {
-		return nil, fmt.Errorf("invalid macaddr: %w", err)
-	}
-	pubkey, err := unescapeBytes(data["public_key"])
-	if err != nil {
-		return nil, fmt.Errorf("invalid public_key: %w", err)
-	}
+	macaddr := hex.EncodeToString([]byte(data["macaddr"]))
+	pubkey := hex.EncodeToString([]byte(data["public_key"]))
 
 	return &NodeInfoMessage{
 		Id:        data["id"],
 		LongName:  data["long_name"],
 		ShortName: data["short_name"],
-		MACaddr:   macaddr,
+		MACaddr:   []byte(macaddr),
 		HWModel:   data["hw_model"],
-		PublicKey: pubkey,
+		PublicKey: []byte(pubkey),
 	}, nil
 }

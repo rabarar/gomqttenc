@@ -77,3 +77,16 @@ func replaceBinaryWithHex(input string) string {
 	}
 	return b.String()
 }
+
+// examine the payload and heuristically determine if it's a protobuf or a json packet
+// nolint unused
+func isLikelyJSON(payload []byte) bool {
+	// Trim leading whitespace and check if the first non-space char is '{'
+	for _, b := range payload {
+		if b == ' ' || b == '\n' || b == '\r' || b == '\t' {
+			continue
+		}
+		return (b == '{')
+	}
+	return false
+}

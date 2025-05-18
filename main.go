@@ -97,6 +97,11 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 }
 
 func handleMeshtasticTopics(msg mqtt.Message) error {
+
+	if isLikelyJSON(msg.Payload()) {
+		log.Warnf("msg is likely JSON: [%s]", msg.Payload())
+		return nil
+	}
 	var env meshtastic.ServiceEnvelope
 	err := proto.Unmarshal(msg.Payload(), &env)
 	if err != nil {
@@ -253,12 +258,39 @@ func handleMeshtasticTopics(msg mqtt.Message) error {
 				PrecisionBits:  parsed.PrecisionBits,
 			}
 
+		case meshtastic.PortNum_TEXT_MESSAGE_APP:
+			parsed, err := parseTextMessage(out)
+			if err != nil {
+				fmt.Println("Parse error:", err)
+			} else {
+				log.Infof("Parsed message: %+v", parsed)
+
+				// TODO switch v:= parsed.Parsed.(type) {
+				switch parsed.Parsed.(type) {
+				case DeepwoodBLE:
+					telegrafChannel <- DeepwoodBLE{
+						Envelope: messageEnv,
+					}
+				case DeepwoodWIFI:
+					telegrafChannel <- DeepwoodWIFI{
+						Envelope: messageEnv,
+					}
+				case DeepwoodProbe:
+					telegrafChannel <- DeepwoodProbe{
+						Envelope: messageEnv,
+					}
+				default:
+					fmt.Println("Unknown type")
+					return ErrMeshHandlerError
+				}
+			}
+
 		case meshtastic.PortNum_TELEMETRY_APP:
 			parsed, err := parseTelemetryMessage(out)
 			if err != nil {
 				fmt.Println("Parse error:", err)
 			} else {
-				log.Infof("Parsed message: %+v\n", parsed)
+				log.Infof("Parsed message: %+v", parsed)
 
 				switch v := parsed.Parsed.(type) {
 				case DeviceMetrics:
