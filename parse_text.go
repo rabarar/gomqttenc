@@ -1,27 +1,23 @@
 package main
 
-/*
-	parsed, err := parseTextMessage(out)
-	if err != nil {
-		fmt.Println("Parse error:", err)
-	} else {
-		log.Infof("Parsed message: %+v\n", parsed)
+import (
+	"fmt"
+	"regexp"
+	"strings"
+	"time"
 
-		switch v := parsed.Parsed.(type) {
-		case DeepwoodBLE:
-		case DeepwoodWIFI:
-		case DeepwoodProbe:
-		default:
-		}
-	}
-*/
+	"github.com/charmbracelet/log"
+)
 
 type TextMessageType string
 
 const (
-	DeepwoodBLEType   TextMessageType = "Deepwood BLE Alert"
-	DeepwoodWIFIType  TextMessageType = "Deepwood WIFI Alert"
-	DeepwoodProbeType TextMessageType = "Deepwood Probe Alert"
+	DeepwoodBLEType   TextMessageType = "BLE"
+	DeepwoodWIFIType  TextMessageType = "WIFI"
+	DeepwoodProbeType TextMessageType = "Probe"
+
+	ALERT_DETECTED = "DETECTED"
+	ALERT_CLEARED  = "CLEARED"
 )
 
 type TextMessage struct {
@@ -32,66 +28,62 @@ type TextMessage struct {
 
 type DeepwoodBLE struct {
 	Envelope MessageEnvelope
+	MACAddr  string
 }
 
 type DeepwoodWIFI struct {
 	Envelope MessageEnvelope
+	MACAddr  string
 }
 
 type DeepwoodProbe struct {
 	Envelope MessageEnvelope
+	MACAddr  string
 }
 
 func parseTextMessage(msg string) (*TextMessage, error) {
-	var tm TextMessage
 
-	/*
-		// Extract timestamp
-		timeRe := regexp.MustCompile(`time:(\d+)`)
-		timeMatch := timeRe.FindStringSubmatch(msg)
-		if len(timeMatch) < 2 {
-			return nil, fmt.Errorf("time field missing or invalid")
+	// Regular expression to extract 'type' and MAC address
+	re := regexp.MustCompile(`Detected non-baseline (\w+): ((?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2})`)
+
+	log.Debugf("Matching [%s]", msg)
+	matches := re.FindStringSubmatch(msg)
+
+	if matches == nil || len(matches) != 3 {
+		return nil, fmt.Errorf("input string format invalid or no match found")
+	}
+
+	switch strings.ToLower(matches[1]) {
+	case "ble":
+		var tm = TextMessage{
+			Time: time.Now().Unix(),
+			Type: DeepwoodBLEType,
+			Parsed: DeepwoodBLE{
+				MACAddr: matches[2],
+			},
 		}
+		return &tm, nil
 
-		timestamp, err := strconv.ParseInt(timeMatch[1], 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid timestamp: %w", err)
+	case "wifi":
+		var tm = TextMessage{
+			Time: time.Now().Unix(),
+			Type: DeepwoodWIFIType,
+			Parsed: DeepwoodWIFI{
+				MACAddr: matches[2],
+			},
 		}
-		tm.Time = timestamp
-
-		switch {
-		case strings.Contains(msg, "device_metrics:{"):
-			tm.Type = DeviceMetricsType
-			metrics := DeviceMetrics{}
-			// re := regexp.MustCompile(`battery_level:(\d+) voltage:([\d.]+) channel_utilization:([\d.]+) air_util_tx:([\d.]+) uptime_seconds:(\d+)`)
-			re := regexp.MustCompile(`battery_level:(\d+)\s+voltage:([\d.]+)\s+channel_utilization:([\d.]+)\s+air_util_tx:([\d.]+)\s+uptime_seconds:(\d+)`)
-
-			match := re.FindStringSubmatch(msg)
-			if len(match) != 6 {
-				return nil, fmt.Errorf("failed to parse device_metrics")
-			}
-			metrics.BatteryLevel, _ = strconv.Atoi(match[1])
-			metrics.Voltage, _ = strconv.ParseFloat(match[2], 64)
-			metrics.ChannelUtilization, _ = strconv.ParseFloat(match[3], 64)
-			metrics.AirUtilTx, _ = strconv.ParseFloat(match[4], 64)
-			metrics.UptimeSeconds, _ = strconv.Atoi(match[5])
-			tm.Parsed = metrics
-
-		case strings.Contains(msg, "environment_metrics:{"):
-			tm.Type = EnvironmentMetricsType
-			metrics := EnvironmentMetrics{}
-			re := regexp.MustCompile(`temperature:([\d.]+)\s+relative_humidity:([\d.]+)`)
-			match := re.FindStringSubmatch(msg)
-			if len(match) != 3 {
-				return nil, fmt.Errorf("failed to parse environment_metrics")
-			}
-			metrics.Temperature, _ = strconv.ParseFloat(match[1], 64)
-			metrics.RelativeHumidity, _ = strconv.ParseFloat(match[2], 64)
-			tm.Parsed = metrics
-
-		default:
-			return nil, fmt.Errorf("unknown telemetry format")
+		return &tm, nil
+	case "probereq":
+		var tm = TextMessage{
+			Time: time.Now().Unix(),
+			Type: DeepwoodProbeType,
+			Parsed: DeepwoodProbe{
+				MACAddr: matches[2],
+			},
 		}
-	*/
-	return &tm, nil
+		return &tm, nil
+	default:
+		return nil, fmt.Errorf("invalid NON-Baseline Detection Type")
+	}
+
 }

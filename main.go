@@ -265,22 +265,27 @@ func handleMeshtasticTopics(msg mqtt.Message) error {
 			} else {
 				log.Infof("Parsed message: %+v", parsed)
 
-				// TODO switch v:= parsed.Parsed.(type) {
-				switch parsed.Parsed.(type) {
+				switch v := parsed.Parsed.(type) {
 				case DeepwoodBLE:
+					log.Infof("processing Deepwood BLE for telegraf")
 					telegrafChannel <- DeepwoodBLE{
 						Envelope: messageEnv,
+						MACAddr:  v.MACAddr,
 					}
 				case DeepwoodWIFI:
+					log.Infof("processing Deepwood WIFI for telegraf")
 					telegrafChannel <- DeepwoodWIFI{
 						Envelope: messageEnv,
+						MACAddr:  v.MACAddr,
 					}
 				case DeepwoodProbe:
+					log.Infof("processing Deepwood Probe for telegraf")
 					telegrafChannel <- DeepwoodProbe{
 						Envelope: messageEnv,
+						MACAddr:  v.MACAddr,
 					}
 				default:
-					fmt.Println("Unknown type")
+					log.Errorf("%s", fmt.Sprintf("unknown TEXT_MESSAGE parse type: %T", v))
 					return ErrMeshHandlerError
 				}
 			}
@@ -413,8 +418,10 @@ func startPublisher(ctx context.Context, wg *sync.WaitGroup, telegrafURL string,
 			switch metric := msg.(type) {
 			case NodeInfoMessage:
 				line = fmt.Sprintf("device_metrics,device=%x,channel=LongFast,portnum=NODEINFO_APP "+
-					"id=\"%s\",long_name=\"%s\",short_name=\"%s\",macaddr=\"%s\",hw_model=\"%s\",public_key=\"֡%s\"",
-					metric.Envelope.Device, metric.Id, metric.LongName, metric.ShortName, metric.MACaddr, metric.HWModel, metric.PublicKey)
+					"id=\"%s\",long_name=\"%s\",short_name=\"%s\",macaddr=\"%-2.2x:%-2.2x:%-2.2x:%-2.2x:%-2.2x:%-2.2x\",hw_model=\"%s\",public_key=\"֡%x\"",
+					metric.Envelope.Device, metric.Id, metric.LongName, metric.ShortName,
+					metric.MACaddr[0], metric.MACaddr[1], metric.MACaddr[2], metric.MACaddr[3], metric.MACaddr[4], metric.MACaddr[5],
+					metric.HWModel, metric.PublicKey[0])
 
 			case DeviceMetrics:
 				line = fmt.Sprintf("device_metrics,device=%x,channel=LongFast,portnum=TELEMETRY_APP "+
@@ -463,6 +470,16 @@ func startPublisher(ctx context.Context, wg *sync.WaitGroup, telegrafURL string,
 				line = fmt.Sprintf("rtl_433,model=\"%s\",ID=%d "+
 					"TemperatureC=%f,Humidity=%d,BatteryOK=%d,Status=%d,MIC=\"%s\" %d",
 					metric.Model, metric.ID, metric.TemperatureC, metric.Humidity, metric.BatteryOK, metric.Status, metric.MIC, timestamp)
+
+			case DeepwoodBLE:
+				line = fmt.Sprintf("Intrusion,type=\"%s\",MAC=\"%s\" alert=\"%s\" %d", DeepwoodBLEType, metric.MACAddr, ALERT_DETECTED, timestamp)
+
+			case DeepwoodWIFI:
+				line = fmt.Sprintf("Intrusion,type=\"%s\",MAC=\"%s\" alert=\"%s\" %d", DeepwoodWIFIType, metric.MACAddr, ALERT_DETECTED, timestamp)
+
+			case DeepwoodProbe:
+				line = fmt.Sprintf("Intrusion,type=\"%s\",MAC=\"%s\" alert=\"%s\" %d", DeepwoodProbeType, metric.MACAddr, ALERT_DETECTED, timestamp)
+
 			default:
 				log.Error("Unknown Telegraf Channel Message Type received -- no message published: %T", msg)
 				return
