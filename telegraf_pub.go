@@ -122,7 +122,7 @@ func startPublisher(ctx context.Context, wg *sync.WaitGroup, telegrafURL string,
 			}
 
 		case <-ctx.Done():
-			log.Info("Publisher received shutdown signal (cancellled).")
+			log.Info("Publisher received shutdown signal (cancelled).")
 			return
 		}
 	}
