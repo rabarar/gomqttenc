@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"gomqttenc/md"
+	"gomqttenc/shared"
 
 	"github.com/charmbracelet/log"
 	"github.com/rabarar/meshtastic"
@@ -23,7 +24,7 @@ const (
 	SenderKeyIndex
 )
 
-func TryDecode(packet *meshtastic.MeshPacket, keys []Key, decryptType DecryptType) (*meshtastic.Data, error) {
+func TryDecode(packet *meshtastic.MeshPacket, keys []shared.Key, decryptType DecryptType) (*meshtastic.Data, error) {
 
 	switch packet.GetPayloadVariant().(type) {
 	case *meshtastic.MeshPacket_Decoded:
@@ -34,7 +35,7 @@ func TryDecode(packet *meshtastic.MeshPacket, keys []Key, decryptType DecryptTyp
 
 		switch decryptType {
 		case DecryptChannel:
-			decrypted, err = XOR(packet.GetEncrypted(), keys[0].hex, packet.Id, packet.From)
+			decrypted, err = XOR(packet.GetEncrypted(), keys[0].Hex, packet.Id, packet.From)
 			if err != nil {
 				log.Warnf("Failed decrypting packet: %s", err)
 				return nil, ErrDecrypt
@@ -49,7 +50,7 @@ func TryDecode(packet *meshtastic.MeshPacket, keys []Key, decryptType DecryptTyp
 
 			// Sender's private key
 			// derive sender's public key
-			keyslice, err := sliceTo32ByteArray(keys[SenderKeyIndex].hex)
+			keyslice, err := sliceTo32ByteArray(keys[SenderKeyIndex].Hex)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -58,7 +59,7 @@ func TryDecode(packet *meshtastic.MeshPacket, keys []Key, decryptType DecryptTyp
 				log.Fatal(err)
 			}
 
-			decrypted, err = md.DecryptCurve25519(packet.From, packet.Id, senderPub[:], keys[ReceiverKeyIndex].hex, packet.GetEncrypted())
+			decrypted, err = md.DecryptCurve25519(packet.From, packet.Id, senderPub[:], keys[ReceiverKeyIndex].Hex, packet.GetEncrypted())
 
 			if err != nil {
 				log.Warnf("Failed decrypting packet: %s", err)

@@ -1,4 +1,10 @@
-package main
+package rtl433
+
+import "errors"
+
+var (
+	ErrHandleRTL433Data = errors.New("failed to handle RTL433 Topc")
+)
 
 // Define the struct
 type RTL433SensorData struct {

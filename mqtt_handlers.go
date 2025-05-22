@@ -2,9 +2,9 @@ package main
 
 import (
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"gomqttenc/md"
+	"gomqttenc/shared"
 
 	"github.com/charmbracelet/log"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -13,6 +13,8 @@ import (
 )
 
 // MQTT callback for message handling
+
+/*
 func messageHandler(client mqtt.Client, msg mqtt.Message) {
 	log.Infof("Received MQTT message from topic: \x1b[33m%s\x1b[0m", msg.Topic())
 
@@ -33,6 +35,23 @@ func messageHandler(client mqtt.Client, msg mqtt.Message) {
 		log.Warnf("unknown topic: [%s]", msg.Topic())
 	}
 
+}
+*/
+
+func makeHandler(ctx *shared.MqttMessageHandlerContext) mqtt.MessageHandler {
+	return func(client mqtt.Client, msg mqtt.Message) {
+		topic := msg.Topic()
+
+		for handlerName, handler := range ctx.Plugs {
+			if handlerName == topic {
+				err := handler.Process(topic, ctx.TelegrafChan, msg)
+				if err != nil {
+					log.Errorf("failed to process [%s] with handler [%s] error: [%s]", topic, handlerName, err)
+				}
+				return
+			}
+		}
+	}
 }
 
 func handleMeshtasticTopics(msg mqtt.Message) error {
@@ -58,7 +77,7 @@ func handleMeshtasticTopics(msg mqtt.Message) error {
 			log.Warnf("decrypt => [%s]", hex.EncodeToString(enc))
 
 			// DECRYPT using key
-			keyslice, err := sliceTo32ByteArray(channelKeys["!335c546c"].hex)
+			keyslice, err := sliceTo32ByteArray(channelKeys["!335c546c"].Hex)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -67,7 +86,7 @@ func handleMeshtasticTopics(msg mqtt.Message) error {
 				log.Fatal(err)
 			}
 
-			decrypted, err := md.DecryptCurve25519(mesh.From, mesh.Id, senderPub[:], channelKeys["!53e95d16"].hex, mesh.GetEncrypted())
+			decrypted, err := md.DecryptCurve25519(mesh.From, mesh.Id, senderPub[:], channelKeys["!53e95d16"].Hex, mesh.GetEncrypted())
 
 			if err != nil {
 				log.Fatalf("Failed decrypting packet: %s", err)
@@ -105,7 +124,7 @@ func handleMeshtasticTopics(msg mqtt.Message) error {
 	}
 
 	// if it's a PKI message use the device ID to decrypt
-	var privKeys []Key
+	var privKeys []shared.Key
 
 	if env.ChannelId == "PKI" {
 
@@ -127,7 +146,7 @@ func handleMeshtasticTopics(msg mqtt.Message) error {
 			return ErrMeshHandlerError
 		}
 		privKeys = append(privKeys, toAddrKey)
-		log.Debugf("retrieving TO key for %s [%s]", toAddr, toAddrKey.txt)
+		log.Debugf("retrieving TO key for %s [%s]", toAddr, toAddrKey.Txt)
 
 		fromAddrKey, ok := channelKeys[fromAddr]
 		if !ok {
@@ -136,7 +155,7 @@ func handleMeshtasticTopics(msg mqtt.Message) error {
 		}
 
 		privKeys = append(privKeys, fromAddrKey)
-		log.Debugf("retrieving FROM key for %s [%s]", fromAddr, fromAddrKey.txt)
+		log.Debugf("retrieving FROM key for %s [%s]", fromAddr, fromAddrKey.Txt)
 
 	} else {
 		log.Debugf("retrieving key for %s", env.ChannelId)
@@ -145,7 +164,7 @@ func handleMeshtasticTopics(msg mqtt.Message) error {
 			log.Errorf("no private key found for ChannelId: [%s]", env.ChannelId)
 			return ErrMeshHandlerError
 		}
-		log.Debugf("Decoding with key [%s]", privKey.txt)
+		log.Debugf("Decoding with key [%s]", privKey.Txt)
 
 		privKeys = append(privKeys, privKey)
 
@@ -311,31 +330,6 @@ func handleMeshtasticTopics(msg mqtt.Message) error {
 			}
 		}
 	}
-	return nil
-}
-
-func handleRTL433Topics(msg mqtt.Message) error {
-
-	var sd RTL433SensorData
-
-	// Unmarshal the JSON into the struct
-	if err := json.Unmarshal([]byte(msg.Payload()), &sd); err != nil {
-		log.Fatalf("Error unmarshaling JSON: %v", err)
-		return ErrHandleRTL433Data
-	}
-
-	// publish to Telegraf
-	telegrafChannel <- RTL433SensorData{
-		Time:         sd.Time,
-		Model:        sd.Model,
-		ID:           sd.ID,
-		BatteryOK:    sd.BatteryOK,
-		TemperatureC: sd.TemperatureC,
-		Humidity:     sd.Humidity,
-		Status:       sd.Status,
-		MIC:          sd.MIC,
-	}
-
 	return nil
 }
 

@@ -1,7 +1,7 @@
 
 MESH_PROTO=../protobufs
 
-all: gomqttenc plugins lint 
+all: gomqttenc plugins #lint 
 
 plugins: msh_plugin rtl433_plugin udp_plugin
 
@@ -26,14 +26,13 @@ gomqttenc: go.mod \
 	decode_local.go \
 	errors.go \
 	main.go \
-	types.go \
 	mqtt_handlers.go \
 	plugin_manager.go \
 	telegraf_pub.go \
 	parse_map_report.go \
 	parse_nodeinfo_report.go \
 	parse_position.go \
-	parse_rtl433.go \
+	rtl433/*.go \
 	parse_telemetry.go \
 	parse_text.go \
 	parse.go \

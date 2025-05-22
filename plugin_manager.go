@@ -1,29 +1,32 @@
 package main
 
 import (
+	"errors"
 	"gomqttenc/shared"
 	"plugin"
 
 	"github.com/charmbracelet/log"
 )
 
-var MqttPluginHandlers = map[string]shared.MqttPluginHandler{}
+func loadMqttPlugin(name, path string) (shared.MqttPluginHandler, error) {
 
-func loadMqttPlugin(name, path string) {
 	p, err := plugin.Open(path)
 	if err != nil {
-		log.Fatalf("failed to open plugin: %v", err)
+		log.Errorf("failed to open plugin: %v", err)
+		return nil, err
 	}
 
 	sym, err := p.Lookup("Handler")
 	if err != nil {
-		log.Fatalf("failed to lookup Handler symbol: %v", err)
+		log.Errorf("failed to lookup Handler symbol: %v", err)
+		return nil, err
 	}
 
 	handler, ok := sym.(*shared.MqttPluginHandler)
 	if !ok {
-		log.Fatalf("unexpected type from module symbol")
+		log.Errorf("unexpected type from module symbol")
+		return nil, errors.New("unexpected type from module symbol")
 	}
 
-	MqttPluginHandlers[name] = *handler
+	return *handler, nil
 }

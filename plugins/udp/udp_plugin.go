@@ -8,7 +8,7 @@ import (
 
 type MshMqttHandler struct{}
 
-func (m MshMqttHandler) Process(name string, msg mqtt.Message) error {
+func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message) error {
 	return nil
 }
 

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gomqttenc/shared"
 	"os"
 	"strings"
 
@@ -17,7 +18,7 @@ type ParsedPacket struct {
 	FullNonceRaw []byte // Full 4 bytes of extraNonce (debug)
 }
 
-func topicsQoSFromConfig(cfg map[string]PluginConfig) map[string]byte {
+func topicsQoSFromConfig(cfg map[string]shared.PluginConfig) map[string]byte {
 	var transformed = make(map[string]byte)
 
 	for topic, plug := range cfg {
@@ -27,7 +28,7 @@ func topicsQoSFromConfig(cfg map[string]PluginConfig) map[string]byte {
 	return transformed
 }
 
-func loadConfig(filename string) (*Config, error) {
+func loadConfig(filename string) (*shared.Config, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -39,11 +40,33 @@ func loadConfig(filename string) (*Config, error) {
 		}
 	}()
 
-	var cfg Config
+	var cfg shared.Config
 	if err := json.NewDecoder(file).Decode(&cfg); err != nil {
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+// topicMatches returns true if the received topic matches the subscription topic
+func topicMatches(subscription, received string) bool {
+	// Case 1: No wildcard, exact match only
+	if !strings.HasSuffix(subscription, "#") {
+		return subscription == received
+	}
+
+	// Case 2: Wildcard '#'
+	// Remove "/#" or just "#" from subscription
+	if subscription == "#" {
+		return true // Matches everything
+	}
+
+	if strings.HasSuffix(subscription, "/#") {
+		prefix := strings.TrimSuffix(subscription, "/#")
+		return received == prefix || strings.HasPrefix(received, prefix+"/")
+	}
+
+	// Unsupported wildcard usage (e.g., '#' not at end)
+	return false
 }
 
 func getRootTopic(topic string) string {

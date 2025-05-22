@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"flag"
+	"gomqttenc/shared"
 	"os"
 	"os/signal"
 	"sync"
@@ -15,6 +17,13 @@ import (
 	"github.com/charmbracelet/log"
 
 	_ "github.com/rabarar/meshtool-go/public/radio"
+)
+
+var (
+	ErrUnknownMessageType = errors.New("unknown message type")
+	ErrMeshHandlerError   = errors.New("failed to handle Mesh Topc")
+	channelKeys           = map[string]shared.Key{}
+	telegrafChannel       = make(chan shared.TelegrafChannelMessage)
 )
 
 func main() {
@@ -39,8 +48,14 @@ func main() {
 	}
 
 	// Load Plugins
+	var MqttPluginHandlers = make(shared.MqttPluginHandlers)
+
 	for t, p := range cfg.Topics {
-		loadMqttPlugin(p.Name, p.Path)
+		handler, err := loadMqttPlugin(p.Name, p.Path)
+		if err != nil {
+			log.Fatalf("failed to load handler: Name: [%s] Path: [%s] Error: [%s]", p.Name, p.Path, err)
+		}
+		MqttPluginHandlers[p.Name] = handler
 		log.Infof("Plugin: [%s] for Topic: [%s]  => [%s]", p.Name, t, p.Path)
 	}
 
@@ -51,9 +66,9 @@ func main() {
 	for _, entry := range cfg.B64Keys {
 		for k, v := range entry {
 			log.Debug("creating key %s, value %s", k, string(v))
-			var key Key
-			key.txt = string(v)
-			key.hex, err = base64.StdEncoding.DecodeString(string(v))
+			var key shared.Key
+			key.Txt = string(v)
+			key.Hex, err = base64.StdEncoding.DecodeString(string(v))
 			if err != nil {
 				log.Fatalf("Invalid base64 channel key: %s", err)
 			}
@@ -81,7 +96,10 @@ func main() {
 	opts.SetClientID(cfg.ClientID)
 	opts.SetUsername(cfg.Username)
 	opts.SetPassword(cfg.Password)
-	opts.SetDefaultPublishHandler(messageHandler)
+	opts.SetDefaultPublishHandler(makeHandler(&shared.MqttMessageHandlerContext{
+		Plugs:        MqttPluginHandlers,
+		TelegrafChan: telegrafChannel,
+	}))
 
 	client := mqtt.NewClient(opts)
 
