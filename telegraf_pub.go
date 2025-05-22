@@ -4,8 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"gomqttenc/parser"
 	"gomqttenc/rtl433"
 	"gomqttenc/shared"
+	"gomqttenc/utils"
 	"net/http"
 	"sync"
 	"time"
@@ -25,32 +27,32 @@ func startPublisher(ctx context.Context, wg *sync.WaitGroup, telegrafURL string,
 			var line string
 
 			switch metric := msg.(type) {
-			case NodeInfoMessage:
+			case parser.NodeInfoMessage:
 				line = fmt.Sprintf("device_metrics,device=%x,channel=LongFast,portnum=NODEINFO_APP "+
 					"id=\"%s\",long_name=\"%s\",short_name=\"%s\",macaddr=\"%-2.2x:%-2.2x:%-2.2x:%-2.2x:%-2.2x:%-2.2x\",hw_model=\"%s\",public_key=\"֡%x\"",
 					metric.Envelope.Device, metric.Id, metric.LongName, metric.ShortName,
 					metric.MACaddr[0], metric.MACaddr[1], metric.MACaddr[2], metric.MACaddr[3], metric.MACaddr[4], metric.MACaddr[5],
 					metric.HWModel, metric.PublicKey[0])
 
-			case DeviceMetrics:
+			case parser.DeviceMetrics:
 				line = fmt.Sprintf("device_metrics,device=%x,channel=LongFast,portnum=TELEMETRY_APP "+
 					"battery_level=%d,voltage=%f,channel_utilization=%f,air_util_tx=%f,uptime_seconds=%d %d",
 					metric.Envelope.Device, metric.BatteryLevel, metric.Voltage,
 					metric.ChannelUtilization, metric.AirUtilTx, metric.UptimeSeconds, timestamp)
 
-			case EnvironmentMetrics:
+			case parser.EnvironmentMetrics:
 				line = fmt.Sprintf("device_metrics,device=%x,channel=LongFast,portnum=TELEMETRY_APP "+
 					"temperature=%f,relative_humidity=%f %d",
 					metric.Envelope.Device, metric.Temperature, metric.RelativeHumidity, timestamp)
 
-			case MapReportMessage:
+			case parser.MapReportMessage:
 				line = fmt.Sprintf("device_metrics,device=%x,channel=LongFast,portnum=MAP_REPORT_APP "+
 					"long_name=\"%s\",short_name=\"%s\",HwModel=\"%s\",FirmwareVersion=\"%s\",Region=\"%s\",HasDefaultChannel=%t,LatitudeI=%d,LongitudeI=%d,Altitude=%d,PositionPrecision=%d,NumOnlineLocalNodes=%d %d",
 					metric.Envelope.Device, metric.LongName, metric.ShortName, metric.HwModel, metric.FirmwareVersion,
 					metric.Region, metric.HasDefaultChannel, metric.LatitudeI, metric.LongitudeI, metric.Altitude,
 					metric.PositionPrecision, metric.NumOnlineLocalNodes, timestamp)
 
-			case PositionMessage:
+			case parser.PositionMessage:
 				var ts int64
 				var seq, sats int
 
@@ -80,14 +82,14 @@ func startPublisher(ctx context.Context, wg *sync.WaitGroup, telegrafURL string,
 					"TemperatureC=%f,Humidity=%d,BatteryOK=%d,Status=%d,MIC=\"%s\" %d",
 					metric.Model, metric.ID, metric.TemperatureC, metric.Humidity, metric.BatteryOK, metric.Status, metric.MIC, timestamp)
 
-			case DeepwoodBLE:
-				line = fmt.Sprintf("Intrusion,type=\"%s\",MAC=\"%s\" alert=\"%s\" %d", DeepwoodBLEType, metric.MACAddr, ALERT_DETECTED, timestamp)
+			case parser.DeepwoodBLE:
+				line = fmt.Sprintf("Intrusion,type=\"%s\",MAC=\"%s\" alert=\"%s\" %d", parser.DeepwoodBLEType, metric.MACAddr, parser.ALERT_DETECTED, timestamp)
 
-			case DeepwoodWIFI:
-				line = fmt.Sprintf("Intrusion,type=\"%s\",MAC=\"%s\" alert=\"%s\" %d", DeepwoodWIFIType, metric.MACAddr, ALERT_DETECTED, timestamp)
+			case parser.DeepwoodWIFI:
+				line = fmt.Sprintf("Intrusion,type=\"%s\",MAC=\"%s\" alert=\"%s\" %d", parser.DeepwoodWIFIType, metric.MACAddr, parser.ALERT_DETECTED, timestamp)
 
-			case DeepwoodProbe:
-				line = fmt.Sprintf("Intrusion,type=\"%s\",MAC=\"%s\" alert=\"%s\" %d", DeepwoodProbeType, metric.MACAddr, ALERT_DETECTED, timestamp)
+			case parser.DeepwoodProbe:
+				line = fmt.Sprintf("Intrusion,type=\"%s\",MAC=\"%s\" alert=\"%s\" %d", parser.DeepwoodProbeType, metric.MACAddr, parser.ALERT_DETECTED, timestamp)
 
 			default:
 				log.Error("Unknown Telegraf Channel Message Type received -- no message published: %T", msg)
@@ -114,9 +116,9 @@ func startPublisher(ctx context.Context, wg *sync.WaitGroup, telegrafURL string,
 
 			// TODO this isn't it!
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
-				log.Infof("metric published to Telegraf: %s", replaceBinaryWithHex(line))
+				log.Infof("metric published to Telegraf: %s", utils.ReplaceBinaryWithHex(line))
 			} else {
-				log.Warnf("FAILED metric published to Telegraf Line: [%s], StatusCode: %d, Status: %s", replaceBinaryWithHex(line), resp.StatusCode, resp.Status)
+				log.Warnf("FAILED metric published to Telegraf Line: [%s], StatusCode: %d, Status: %s", utils.ReplaceBinaryWithHex(line), resp.StatusCode, resp.Status)
 			}
 
 		case <-ctx.Done():

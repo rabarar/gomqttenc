@@ -1,6 +1,15 @@
 package shared
 
-import mqtt "github.com/eclipse/paho.mqtt.golang"
+import (
+	"errors"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+)
+
+var (
+	ErrUnknownMessageType = errors.New("unknown message type")
+	ErrMeshHandlerError   = errors.New("failed to handle Mesh Topc")
+)
 
 type MqttPluginHandler interface {
 	Process(name string, ctx interface{}, msg mqtt.Message) error
@@ -41,4 +50,5 @@ type MqttPluginHandlers map[string]MqttPluginHandler
 type MqttMessageHandlerContext struct {
 	Plugs        MqttPluginHandlers
 	TelegrafChan TelegrafChannelMessage
+	ChannelKeys  map[string]Key
 }

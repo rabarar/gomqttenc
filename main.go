@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"encoding/base64"
-	"errors"
 	"flag"
 	"gomqttenc/shared"
+	"gomqttenc/utils"
 	"os"
 	"os/signal"
 	"sync"
@@ -20,10 +20,8 @@ import (
 )
 
 var (
-	ErrUnknownMessageType = errors.New("unknown message type")
-	ErrMeshHandlerError   = errors.New("failed to handle Mesh Topc")
-	channelKeys           = map[string]shared.Key{}
-	telegrafChannel       = make(chan shared.TelegrafChannelMessage)
+	channelKeys     = map[string]shared.Key{}
+	telegrafChannel = make(chan shared.TelegrafChannelMessage)
 )
 
 func main() {
@@ -41,7 +39,7 @@ func main() {
 	}
 
 	// load config
-	cfg, err := loadConfig("config.json")
+	cfg, err := utils.LoadConfig("config.json")
 	if err != nil {
 		log.Error("Failed to load config: %s\n", err)
 		return
@@ -99,6 +97,7 @@ func main() {
 	opts.SetDefaultPublishHandler(makeHandler(&shared.MqttMessageHandlerContext{
 		Plugs:        MqttPluginHandlers,
 		TelegrafChan: telegrafChannel,
+		ChannelKeys:  channelKeys,
 	}))
 
 	client := mqtt.NewClient(opts)
@@ -122,7 +121,7 @@ func main() {
 	}
 
 	// subscripe to MQTT Topic and process in messageHandler()
-	if token := client.SubscribeMultiple(topicsQoSFromConfig(cfg.Topics), nil); token.Wait() && token.Error() != nil {
+	if token := client.SubscribeMultiple(utils.TopicsQoSFromConfig(cfg.Topics), nil); token.Wait() && token.Error() != nil {
 		log.Fatal("Subscription error:", token.Error())
 		os.Exit(1)
 	}

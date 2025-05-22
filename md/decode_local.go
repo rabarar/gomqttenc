@@ -1,15 +1,18 @@
-package main
+package md
 
 import (
-	"fmt"
-
-	"gomqttenc/md"
+	"errors"
 	"gomqttenc/shared"
+	"gomqttenc/utils"
 
 	"github.com/charmbracelet/log"
 	"github.com/rabarar/meshtastic"
-	"golang.org/x/crypto/curve25519"
 	"google.golang.org/protobuf/proto"
+)
+
+var (
+	ErrUnkownPayloadType = errors.New("unknown payload type")
+	ErrDecrypt           = errors.New("unable to decrypt payload")
 )
 
 type DecryptType int
@@ -50,7 +53,7 @@ func TryDecode(packet *meshtastic.MeshPacket, keys []shared.Key, decryptType Dec
 
 			// Sender's private key
 			// derive sender's public key
-			keyslice, err := sliceTo32ByteArray(keys[SenderKeyIndex].Hex)
+			keyslice, err := utils.SliceTo32ByteArray(keys[SenderKeyIndex].Hex)
 			if err != nil {
 				log.Fatal(err)
 			}
@@ -59,7 +62,7 @@ func TryDecode(packet *meshtastic.MeshPacket, keys []shared.Key, decryptType Dec
 				log.Fatal(err)
 			}
 
-			decrypted, err = md.DecryptCurve25519(packet.From, packet.Id, senderPub[:], keys[ReceiverKeyIndex].Hex, packet.GetEncrypted())
+			decrypted, err = DecryptCurve25519(packet.From, packet.Id, senderPub[:], keys[ReceiverKeyIndex].Hex, packet.GetEncrypted())
 
 			if err != nil {
 				log.Warnf("Failed decrypting packet: %s", err)
@@ -78,23 +81,4 @@ func TryDecode(packet *meshtastic.MeshPacket, keys []shared.Key, decryptType Dec
 	default:
 		return nil, ErrUnkownPayloadType
 	}
-}
-
-func PublicKeyFromPrivateKey(privKey [32]byte) ([32]byte, error) {
-	pubKey, err := curve25519.X25519(privKey[:], curve25519.Basepoint)
-	if err != nil {
-		return [32]byte{}, err
-	}
-	var pubKeyFixed [32]byte
-	copy(pubKeyFixed[:], pubKey)
-	return pubKeyFixed, nil
-}
-
-func sliceTo32ByteArray(slice []byte) (*[32]byte, error) {
-	if len(slice) != 32 {
-		return nil, fmt.Errorf("invalid key length: expected 32 bytes, got %d, [%x]", len(slice), slice)
-	}
-	var array [32]byte
-	copy(array[:], slice)
-	return &array, nil
 }

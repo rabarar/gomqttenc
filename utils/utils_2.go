@@ -1,8 +1,7 @@
-package main
+package utils
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"gomqttenc/shared"
 	"os"
@@ -11,14 +10,7 @@ import (
 	"github.com/charmbracelet/log"
 )
 
-type ParsedPacket struct {
-	Ciphertext   []byte // Encrypted message
-	MAC          []byte // 8-byte MAC
-	ExtraNonce   byte   // Single byte (lowest byte from extraNonce)
-	FullNonceRaw []byte // Full 4 bytes of extraNonce (debug)
-}
-
-func topicsQoSFromConfig(cfg map[string]shared.PluginConfig) map[string]byte {
+func TopicsQoSFromConfig(cfg map[string]shared.PluginConfig) map[string]byte {
 	var transformed = make(map[string]byte)
 
 	for topic, plug := range cfg {
@@ -28,7 +20,7 @@ func topicsQoSFromConfig(cfg map[string]shared.PluginConfig) map[string]byte {
 	return transformed
 }
 
-func loadConfig(filename string) (*shared.Config, error) {
+func LoadConfig(filename string) (*shared.Config, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -48,7 +40,7 @@ func loadConfig(filename string) (*shared.Config, error) {
 }
 
 // topicMatches returns true if the received topic matches the subscription topic
-func topicMatches(subscription, received string) bool {
+func TopicMatches(subscription, received string) bool {
 	// Case 1: No wildcard, exact match only
 	if !strings.HasSuffix(subscription, "#") {
 		return subscription == received
@@ -69,7 +61,7 @@ func topicMatches(subscription, received string) bool {
 	return false
 }
 
-func getRootTopic(topic string) string {
+func GetRootTopic(topic string) string {
 	parts := strings.Split(topic, "/")
 	if len(parts) == 0 {
 		return ""
@@ -77,7 +69,7 @@ func getRootTopic(topic string) string {
 	return parts[0]
 }
 
-func getNthTopicSegmentFromEnd(topic string, n int) string {
+func GetNthTopicSegmentFromEnd(topic string, n int) string {
 	parts := strings.Split(topic, "/")
 	if len(parts) == 0 {
 		return ""
@@ -91,38 +83,9 @@ func getNthTopicSegmentFromEnd(topic string, n int) string {
 	return parts[index]
 }
 
-// Given full encrypted payload, parse ciphertext, MAC, and extraNonce
-func parseServiceEnvelopePayload(payload []byte) (*ParsedPacket, error) {
-	if len(payload) < 12 {
-		return nil, errors.New("payload too short")
-	}
-
-	auth := payload[len(payload)-12:]       // last 12 bytes
-	ciphertext := payload[:len(payload)-12] // everything before auth
-	mac := auth[:8]                         // first 8 bytes
-	extraNonceBytes := auth[8:12]           // last 4 bytes
-
-	parsed := &ParsedPacket{
-		Ciphertext:   ciphertext,
-		MAC:          mac,
-		ExtraNonce:   extraNonceBytes[0], // ONLY the low byte used
-		FullNonceRaw: extraNonceBytes,
-	}
-
-	// Debug print
-	/*
-		log.Warnf("Parsing ServiceEnvelope payload:")
-		log.Warnf("- Ciphertext (%d bytes): %x", len(parsed.Ciphertext), parsed.Ciphertext)
-		log.Warnf("- MAC (8 bytes): %x", parsed.MAC)
-		log.Warnf("- ExtraNonce (4 bytes raw): %x (using byte: %02x)", parsed.FullNonceRaw, parsed.ExtraNonce)
-	*/
-
-	return parsed, nil
-}
-
 // replaceBinaryWithHex scans the string and replaces any non-printable characters
 // (outside ASCII 32-126) with their hex-encoded form.
-func replaceBinaryWithHex(input string) string {
+func ReplaceBinaryWithHex(input string) string {
 	var b strings.Builder
 	for _, r := range input {
 		if r >= 32 && r <= 126 {
@@ -136,7 +99,7 @@ func replaceBinaryWithHex(input string) string {
 
 // examine the payload and heuristically determine if it's a protobuf or a json packet
 // nolint unused
-func isLikelyJSON(payload []byte) bool {
+func IsLikelyJSON(payload []byte) bool {
 	// Trim leading whitespace and check if the first non-space char is '{'
 	for _, b := range payload {
 		if b == ' ' || b == '\n' || b == '\r' || b == '\t' {

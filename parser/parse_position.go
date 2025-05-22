@@ -1,4 +1,4 @@
-package main
+package parser
 
 import (
 	"fmt"
@@ -22,7 +22,7 @@ type PositionMessage struct {
 	PrecisionBits  int
 }
 
-func parsePositionMessage(msg string) (*PositionMessage, error) {
+func ParsePositionMessage(msg string) (*PositionMessage, error) {
 	//baseRe := regexp.MustCompile(`latitude_i:(-?\d+)\s+longitude_i:(-?\d+)\s+altitude:(\d+)\s+(?:time:(\d+)\s+)?\s+location_source:(\S+)(?:\s+\S+:\S+)*?\s*ground_speed:(\d+)\s+ground_track:(\d+)\s+(?:\S+:\S+\s+)*?precision_bits:(\d+)`)
 	baseRe := regexp.MustCompile(`latitude_i:(-?\d+)\s+longitude_i:(-?\d+)\s+altitude:(\d+)\s+(?:time:(\d+)\s+)?location_source:(\S+)(?:\s+\S+:\S+)*?\s+ground_speed:(\d+)\s+ground_track:(\d+)(?:\s+\S+:\S+)*?\s+precision_bits:(\d+)`)
 	baseMatch := baseRe.FindStringSubmatch(msg)

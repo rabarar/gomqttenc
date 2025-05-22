@@ -1,4 +1,4 @@
-package main
+package parser
 
 import (
 	"encoding/hex"
@@ -42,7 +42,7 @@ func unescapeBytes(escaped string) ([]byte, error) {
 	return result, nil
 }
 
-func parseNodeInfoMessage(input string) (*NodeInfoMessage, error) {
+func ParseNodeInfoMessage(input string) (*NodeInfoMessage, error) {
 	var nodeInfoRegex = regexp.MustCompile(
 		`id:"(?P<id>.*?)"\s+long_name:"(?P<long_name>.*?)"\s+short_name:"(?P<short_name>.*?)"\s+macaddr:"(?P<macaddr>.*?)"\s+hw_model:(?P<hw_model>\S+)\s+public_key:"(?P<public_key>.*?)"`)
 

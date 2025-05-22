@@ -1,4 +1,4 @@
-package main
+package parser
 
 import (
 	"fmt"
@@ -41,7 +41,7 @@ type DeepwoodProbe struct {
 	MACAddr  string
 }
 
-func parseTextMessage(msg string) (*TextMessage, error) {
+func ParseTextMessage(msg string) (*TextMessage, error) {
 
 	// Regular expression to extract 'type' and MAC address
 	re := regexp.MustCompile(`Detected non-baseline (\w+): ((?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2})`)

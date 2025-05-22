@@ -21,22 +21,14 @@ udp_plugin: plugins/udp/udp_plugin.go \
 	go build -buildmode=plugin -o plugins/udp.so gomqttenc/plugins/udp
 
 gomqttenc: go.mod \
-	md/decrypt.go  \
-	aes.go \
-	decode_local.go \
-	errors.go \
+	md/*.go  \
 	main.go \
 	mqtt_handlers.go \
 	plugin_manager.go \
 	telegraf_pub.go \
-	parse_map_report.go \
-	parse_nodeinfo_report.go \
-	parse_position.go \
+	parser/*.go \
 	rtl433/*.go \
-	parse_telemetry.go \
-	parse_text.go \
-	parse.go \
-	utils.go
+	utils/*.go \
 
 	go mod tidy; go build
 

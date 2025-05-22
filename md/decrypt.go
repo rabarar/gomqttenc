@@ -65,3 +65,13 @@ func DecryptCurve25519(
 
 	return plaintext, nil
 }
+
+func PublicKeyFromPrivateKey(privKey [32]byte) ([32]byte, error) {
+	pubKey, err := curve25519.X25519(privKey[:], curve25519.Basepoint)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	var pubKeyFixed [32]byte
+	copy(pubKeyFixed[:], pubKey)
+	return pubKeyFixed, nil
+}

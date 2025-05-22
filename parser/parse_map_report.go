@@ -1,4 +1,4 @@
-package main
+package parser
 
 import (
 	"fmt"
@@ -21,7 +21,7 @@ type MapReportMessage struct {
 	NumOnlineLocalNodes int
 }
 
-func parseMapReportMessage(msg string) (*MapReportMessage, error) {
+func ParseMapReportMessage(msg string) (*MapReportMessage, error) {
 	re := regexp.MustCompile(`long_name:"([^"]+)"\s+short_name:"([^"]+)"\s+hw_model:([^\s]+)\s+firmware_version:"([^"]+)"\s+region:([^\s]+)\s+has_default_channel:(true|false)\s+latitude_i:(-?\d+)\s+longitude_i:(-?\d+)\s+altitude:(\d+)\s+position_precision:(\d+)\s+num_online_local_nodes:(\d+)`)
 	match := re.FindStringSubmatch(msg)
 	if len(match) != 12 {

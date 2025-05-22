@@ -1,4 +1,4 @@
-package main
+package parser
 
 import (
 	"fmt"
@@ -35,7 +35,7 @@ type EnvironmentMetrics struct {
 	RelativeHumidity float64
 }
 
-func parseTelemetryMessage(msg string) (*TelemetryMessage, error) {
+func ParseTelemetryMessage(msg string) (*TelemetryMessage, error) {
 	var tm TelemetryMessage
 
 	// Extract timestamp
