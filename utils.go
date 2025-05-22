@@ -1,9 +1,13 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
+
+	"github.com/charmbracelet/log"
 )
 
 type ParsedPacket struct {
@@ -11,6 +15,25 @@ type ParsedPacket struct {
 	MAC          []byte // 8-byte MAC
 	ExtraNonce   byte   // Single byte (lowest byte from extraNonce)
 	FullNonceRaw []byte // Full 4 bytes of extraNonce (debug)
+}
+
+func loadConfig(filename string) (*Config, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		err = file.Close()
+		if err != nil {
+			log.Warnf("failed to close config file")
+		}
+	}()
+
+	var cfg Config
+	if err := json.NewDecoder(file).Decode(&cfg); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
 }
 
 func getRootTopic(topic string) string {

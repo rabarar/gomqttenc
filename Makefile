@@ -9,6 +9,8 @@ gomqttenc: go.mod \
 	decode_local.go \
 	errors.go \
 	main.go \
+	mqtt_handlers.go \
+	telegraf_pub.go \
 	parse_map_report.go \
 	parse_nodeinfo_report.go \
 	parse_position.go \

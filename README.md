@@ -27,58 +27,27 @@ $ make
 
 ## notes
 
-refactoring for multiple topics
-    - modify json to make it an array of topics/QoS values
-    - modify the subscribe -> subscribeMultiple 
-```
-        token := client.SubscribeMultiple(topics, messageHandler)
-        token.Wait()
-        if token.Error() != nil {
-            log.Fatal(token.Error())
+modify messageHandler to test for JSON 
+
+   if isLikelyJSON(payload) {
+        var result map[string]interface{}
+        if err := json.Unmarshal(payload, &result); err != nil {
+            log.Printf("Invalid JSON: %v", err)
+            return
         }
-```
-and in handler:
-```
-switch msg.Topic() {
-    case "/gps/node/data":
-        handleGPS(msg)
-    case "/sensor/temp":
-        handleTemp(msg)
+        log.Printf("Got JSON: %+v", result)
+    } else {
+        // Assume it's Protobuf — try to decode it
+   ``
+
+func isLikelyJSON(payload []byte) bool {
+    // Trim leading whitespace and check if the first non-space char is '{'
+    for _, b := range payload {
+        if b == ' ' || b == '\n' || b == '\r' || b == '\t' {
+            continue
+        }
+        return b == '{'
     }
-```
-where the handler has the following signatures: `func(client mqtt.Client, msg mqtt.Message)`
-
-## Generic channels
-```
-package main
-
-import (
-	"fmt"
-)
-
-func main() {
-	ch := make(chan interface{})
-
-	// Start a goroutine to send values
-	go func() {
-		ch <- 42
-		ch <- "hello"
-		ch <- 3.14
-		close(ch)
-	}()
-
-	// Receive and type switch
-	for val := range ch {
-		switch v := val.(type) {
-		case int:
-			fmt.Println("int:", v)
-		case string:
-			fmt.Println("string:", v)
-		case float64:
-			fmt.Println("float64:", v)
-		default:
-			fmt.Println("unknown type")
-		}
-	}
+    return false
 }
-```
+
