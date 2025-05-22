@@ -2,13 +2,14 @@ package main
 
 import (
 	"gomqttenc/shared"
-	"strings"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 type MshMqttHandler struct{}
 
-func (m MshMqttHandler) Process(input string) string {
-	return strings.ToUpper(input)
+func (m MshMqttHandler) Process(name string, msg mqtt.Message) error {
+	return nil
 }
 
 // This symbol will be looked up

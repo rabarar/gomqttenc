@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"flag"
-	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -40,13 +39,9 @@ func main() {
 	}
 
 	// Load Plugins
-	for _, p := range cfg.Plugins {
+	for _, p := range cfg.Topics {
 		loadMqttPlugin(p.Name, p.Path)
 	}
-
-	input := "hello plugins"
-	fmt.Println("Original:", input)
-	fmt.Println("Processed:", MqttPluginHandlers["msh"].Process(input))
 
 	// setup telegraf publisher
 	ctx, cancel := context.WithCancel(context.Background())
@@ -103,12 +98,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	for topic, QoS := range cfg.Topics {
-		log.Infof("subscribed to topic: ['%s'] with Qos: [%d]", topic, QoS)
+	for topic, v := range cfg.Topics {
+		log.Infof("subscribed to topic: ['%s'] with Qos: [%d]", topic, v.QoS)
 	}
 
 	// subscripe to MQTT Topic and process in messageHandler()
-	if token := client.SubscribeMultiple(cfg.Topics, nil); token.Wait() && token.Error() != nil {
+	if token := client.SubscribeMultiple(topicsQoSFromConfig(cfg.Topics), nil); token.Wait() && token.Error() != nil {
 		log.Fatal("Subscription error:", token.Error())
 		os.Exit(1)
 	}

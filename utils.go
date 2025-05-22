@@ -17,6 +17,16 @@ type ParsedPacket struct {
 	FullNonceRaw []byte // Full 4 bytes of extraNonce (debug)
 }
 
+func topicsQoSFromConfig(cfg map[string]PluginConfig) map[string]byte {
+	var transformed = make(map[string]byte)
+
+	for topic, plug := range cfg {
+		transformed[topic] = plug.QoS
+	}
+
+	return transformed
+}
+
 func loadConfig(filename string) (*Config, error) {
 	file, err := os.Open(filename)
 	if err != nil {

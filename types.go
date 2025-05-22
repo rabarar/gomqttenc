@@ -23,15 +23,15 @@ var (
 type PluginConfig struct {
 	Name string `json:"name"`
 	Path string `json:"path"`
+	QoS  byte   `json:"qos"`
 }
 
 type Config struct {
-	Broker      string              `json:"broker"`
-	Topics      map[string]byte     `json:"topics"`
-	ClientID    string              `json:"clientID"`
-	Username    string              `json:"username"`
-	Password    string              `json:"password"`
-	B64Keys     []map[string]string `json:"b64Key"`
-	TelegrafURL string              `json:"telegrafURL"`
-	Plugins     []PluginConfig      `json:"plugins"`
+	Broker      string                  `json:"broker"`
+	Topics      map[string]PluginConfig `json:"topics"`
+	ClientID    string                  `json:"clientID"`
+	Username    string                  `json:"username"`
+	Password    string                  `json:"password"`
+	B64Keys     []map[string]string     `json:"b64Key"`
+	TelegrafURL string                  `json:"telegrafURL"`
 }

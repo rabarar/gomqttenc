@@ -1,5 +1,7 @@
 package shared
 
+import mqtt "github.com/eclipse/paho.mqtt.golang"
+
 type MqttPluginHandler interface {
-	Process(input string) string
+	Process(name string, msg mqtt.Message) error
 }
