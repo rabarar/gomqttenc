@@ -55,7 +55,7 @@ func main() {
 		if err != nil {
 			log.Fatalf("failed to load handler: Name: [%s] Path: [%s] Error: [%s]", p.Name, p.Path, err)
 		}
-		MqttPluginHandlers[p.Name] = handler
+		MqttPluginHandlers[t] = handler
 		log.Infof("Plugin: [%s] for Topic: [%s]  => [%s]", p.Name, t, p.Path)
 	}
 
