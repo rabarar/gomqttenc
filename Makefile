@@ -1,7 +1,14 @@
 
 MESH_PROTO=../protobufs
 
-all: gomqttenc lint
+all: gomqttenc plugins lint 
+
+plugins: msh_plugin
+
+msh_plugin: plugins/msh/msh_plugin.go \
+   	shared/shared.go
+
+	go build -buildmode=plugin -o plugins/msh.so gomqttenc/plugins/msh
 
 gomqttenc: go.mod \
 	md/decrypt.go  \
@@ -9,7 +16,9 @@ gomqttenc: go.mod \
 	decode_local.go \
 	errors.go \
 	main.go \
+	types.go \
 	mqtt_handlers.go \
+	plugin_manager.go \
 	telegraf_pub.go \
 	parse_map_report.go \
 	parse_nodeinfo_report.go \
@@ -27,3 +36,5 @@ lint:
 
 clean:
 	rm -f gomqttenc
+	rm -rf *.so
+
