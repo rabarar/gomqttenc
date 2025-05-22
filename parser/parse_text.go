@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"gomqttenc/shared"
 	"regexp"
 	"strings"
 	"time"
@@ -86,4 +87,33 @@ func ParseTextMessage(msg string) (*TextMessage, error) {
 		return nil, fmt.Errorf("invalid NON-Baseline Detection Type")
 	}
 
+}
+
+func ProcessTextMessage(telegrafChannel chan shared.TelegrafChannelMessage, parsed interface{}, messageEnv MessageEnvelope) error {
+
+	switch v := parsed.(type) {
+	case DeepwoodBLE:
+		log.Infof("processing Deepwood BLE for telegraf")
+		telegrafChannel <- DeepwoodBLE{
+			Envelope: messageEnv,
+			MACAddr:  v.MACAddr,
+		}
+	case DeepwoodWIFI:
+		log.Infof("processing Deepwood WIFI for telegraf")
+		telegrafChannel <- DeepwoodWIFI{
+			Envelope: messageEnv,
+			MACAddr:  v.MACAddr,
+		}
+	case DeepwoodProbe:
+		log.Infof("processing Deepwood Probe for telegraf")
+		telegrafChannel <- DeepwoodProbe{
+			Envelope: messageEnv,
+			MACAddr:  v.MACAddr,
+		}
+	default:
+		log.Errorf("%s", fmt.Sprintf("unknown TEXT_MESSAGE parse type: %T", v))
+		return shared.ErrMeshHandlerError
+	}
+
+	return nil
 }

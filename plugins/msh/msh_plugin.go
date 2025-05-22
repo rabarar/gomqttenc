@@ -35,46 +35,6 @@ func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message)
 func handleMeshtasticTopics(msg mqtt.Message, telegrafChannel chan shared.TelegrafChannelMessage, channelKeys map[string]shared.Key) error {
 
 	// TODO DEBUG!
-	if msg.Topic() == "msh/!335c546c/udp" {
-		log.Warnf("GOT UDP TOPIC")
-		var mesh meshtastic.MeshPacket
-		err := proto.Unmarshal(msg.Payload(), &mesh)
-		if err != nil {
-			log.Warnf("Failed to parse MeshPacket: Topic: [%s],  %v", msg.Topic(), err)
-			return shared.ErrMeshHandlerError
-		}
-
-		log.Warnf("From: [%x] To: [%x] Id: [%x] Channel: [%x], WantAck: [%v], ViaMqtt: [%v]",
-			mesh.From, mesh.To, mesh.Id, mesh.Channel, mesh.WantAck, mesh.ViaMqtt)
-		log.Warnf("is Encrypted? [%v]", mesh.PkiEncrypted)
-		if !mesh.PkiEncrypted {
-			log.Warnf("decoded payload: [%s]", mesh.GetDecoded())
-		} else {
-
-			enc := mesh.GetEncrypted()
-			log.Warnf("decrypt => [%s]", hex.EncodeToString(enc))
-
-			// DECRYPT using key
-			keyslice, err := utils.SliceTo32ByteArray(channelKeys["!335c546c"].Hex)
-			if err != nil {
-				log.Fatal(err)
-			}
-			senderPub, err := md.PublicKeyFromPrivateKey(*keyslice)
-			if err != nil {
-				log.Fatal(err)
-			}
-
-			decrypted, err := md.DecryptCurve25519(mesh.From, mesh.Id, senderPub[:], channelKeys["!53e95d16"].Hex, mesh.GetEncrypted())
-
-			if err != nil {
-				log.Fatalf("Failed decrypting packet: %s", err)
-			}
-
-			log.Warnf("Decrypted: [%s]", decrypted)
-
-		}
-		log.Warnf("")
-	}
 
 	if utils.IsLikelyJSON(msg.Payload()) {
 		log.Warnf("msg is likely JSON: [%s]", msg.Payload())
@@ -240,41 +200,23 @@ func handleMeshtasticTopics(msg mqtt.Message, telegrafChannel chan shared.Telegr
 			}
 
 		case meshtastic.PortNum_TEXT_MESSAGE_APP:
+
 			parsed, err := parser.ParseTextMessage(out)
 			if err != nil {
-				fmt.Println("Parse error:", err)
-			} else {
-				log.Infof("Parsed message: %+v", parsed)
-
-				switch v := parsed.Parsed.(type) {
-				case parser.DeepwoodBLE:
-					log.Infof("processing Deepwood BLE for telegraf")
-					telegrafChannel <- parser.DeepwoodBLE{
-						Envelope: messageEnv,
-						MACAddr:  v.MACAddr,
-					}
-				case parser.DeepwoodWIFI:
-					log.Infof("processing Deepwood WIFI for telegraf")
-					telegrafChannel <- parser.DeepwoodWIFI{
-						Envelope: messageEnv,
-						MACAddr:  v.MACAddr,
-					}
-				case parser.DeepwoodProbe:
-					log.Infof("processing Deepwood Probe for telegraf")
-					telegrafChannel <- parser.DeepwoodProbe{
-						Envelope: messageEnv,
-						MACAddr:  v.MACAddr,
-					}
-				default:
-					log.Errorf("%s", fmt.Sprintf("unknown TEXT_MESSAGE parse type: %T", v))
-					return shared.ErrMeshHandlerError
-				}
+				log.Errorf("parse error: %s", err)
+				return err
+			}
+			err = parser.ProcessTextMessage(telegrafChannel, parsed.Parsed, messageEnv)
+			if err != nil {
+				log.Warnf("parse error: %s", err)
+				return err
 			}
 
 		case meshtastic.PortNum_TELEMETRY_APP:
 			parsed, err := parser.ParseTelemetryMessage(out)
 			if err != nil {
-				fmt.Println("Parse error:", err)
+				log.Warnf("parse error: %s", err)
+				return err
 			} else {
 				log.Infof("Parsed message: %+v", parsed)
 

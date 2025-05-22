@@ -6,6 +6,7 @@ import (
 	"gomqttenc/shared"
 	"os"
 	"strings"
+	"unicode"
 
 	"github.com/charmbracelet/log"
 )
@@ -108,4 +109,18 @@ func IsLikelyJSON(payload []byte) bool {
 		return (b == '{')
 	}
 	return false
+}
+
+func TrimNonPrintable(s string) string {
+	return strings.TrimFunc(s, func(r rune) bool {
+		return !unicode.IsGraphic(r)
+	})
+}
+
+func TrimWhitespace(s string) string {
+	return strings.TrimSpace(s)
+}
+
+func TrimAll(s string) string {
+	return TrimWhitespace(TrimNonPrintable(s))
 }
