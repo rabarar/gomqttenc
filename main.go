@@ -39,8 +39,9 @@ func main() {
 	}
 
 	// Load Plugins
-	for _, p := range cfg.Topics {
+	for t, p := range cfg.Topics {
 		loadMqttPlugin(p.Name, p.Path)
+		log.Infof("Plugin: [%s] for Topic: [%s]  => [%s]", p.Name, t, p.Path)
 	}
 
 	// setup telegraf publisher

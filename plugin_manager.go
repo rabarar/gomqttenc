@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"gomqttenc/shared"
-	"log"
 	"plugin"
+
+	"github.com/charmbracelet/log"
 )
 
 var MqttPluginHandlers = map[string]shared.MqttPluginHandler{}
@@ -22,7 +22,6 @@ func loadMqttPlugin(name, path string) {
 
 	handler, ok := sym.(*shared.MqttPluginHandler)
 	if !ok {
-		fmt.Printf("unknown type: %T\n", handler)
 		log.Fatalf("unexpected type from module symbol")
 	}
 
