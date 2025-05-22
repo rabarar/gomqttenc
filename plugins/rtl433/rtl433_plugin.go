@@ -1,0 +1,16 @@
+package main
+
+import (
+	"gomqttenc/shared"
+
+	mqtt "github.com/eclipse/paho.mqtt.golang"
+)
+
+type MshMqttHandler struct{}
+
+func (m MshMqttHandler) Process(name string, msg mqtt.Message) error {
+	return nil
+}
+
+// This symbol will be looked up
+var Handler shared.MqttPluginHandler = MshMqttHandler{}

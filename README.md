@@ -27,27 +27,5 @@ $ make
 
 ## notes
 
-modify messageHandler to test for JSON 
-
-   if isLikelyJSON(payload) {
-        var result map[string]interface{}
-        if err := json.Unmarshal(payload, &result); err != nil {
-            log.Printf("Invalid JSON: %v", err)
-            return
-        }
-        log.Printf("Got JSON: %+v", result)
-    } else {
-        // Assume it's Protobuf — try to decode it
-   ``
-
-func isLikelyJSON(payload []byte) bool {
-    // Trim leading whitespace and check if the first non-space char is '{'
-    for _, b := range payload {
-        if b == ' ' || b == '\n' || b == '\r' || b == '\t' {
-            continue
-        }
-        return b == '{'
-    }
-    return false
-}
+modify mqtt_handlers to dispatch the appropriate plugin for the topic
 
