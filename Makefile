@@ -1,7 +1,7 @@
 
 MESH_PROTO=../protobufs
 
-all: gomqttenc plugins #lint 
+all: gomqttenc plugins lint 
 
 plugins: msh_plugin rtl433_plugin udp_plugin
 
