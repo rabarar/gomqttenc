@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"gomqttenc/md"
 	"gomqttenc/parser"
 	"gomqttenc/shared"
@@ -47,8 +48,11 @@ func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message)
 		log.Warnf("ignoring decoded payload: [%s]", mesh.GetDecoded())
 	} else {
 
+		fromKeyName := fmt.Sprintf("!%x", mesh.From)
+		toKeyName := fmt.Sprintf("!%x", mesh.To)
+
 		// compute Sender' public key from private key
-		keyslice, err := utils.SliceTo32ByteArray(ctx.ChannelKeys["!335c546c"].Hex)
+		keyslice, err := utils.SliceTo32ByteArray(ctx.ChannelKeys[fromKeyName].Hex)
 		if err != nil {
 			log.Warnf("failed to SliceTo32Bytes: %s", err)
 			return shared.ErrMeshHandlerError
@@ -59,14 +63,14 @@ func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message)
 			return shared.ErrMeshHandlerError
 		}
 
-		decrypted, err := md.DecryptCurve25519(mesh.From, mesh.Id, senderPub[:], ctx.ChannelKeys["!53e95d16"].Hex, mesh.GetEncrypted())
+		decrypted, err := md.DecryptCurve25519(mesh.From, mesh.Id, senderPub[:], ctx.ChannelKeys[toKeyName].Hex, mesh.GetEncrypted())
 
 		if err != nil {
 			log.Warnf("failed to decrypting packet: %s", err)
 			return shared.ErrMeshHandlerError
 		}
 		plaintext := utils.TrimAll(string(decrypted))
-		log.Info("decrypted: [%s]", plaintext)
+		log.Infof("decrypted: [%s]", plaintext)
 
 		parsed, err := parser.ParseTextMessage(plaintext)
 		if err != nil {

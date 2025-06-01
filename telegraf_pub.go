@@ -114,7 +114,6 @@ func startPublisher(ctx context.Context, wg *sync.WaitGroup, telegrafURL string,
 				log.Error("Error failed to close Request Body:", err)
 			}
 
-			// TODO this isn't it!
 			if resp.StatusCode == http.StatusNoContent || resp.StatusCode == http.StatusOK {
 				log.Infof("metric published to Telegraf: %s", utils.ReplaceBinaryWithHex(line))
 			} else {
