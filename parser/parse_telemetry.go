@@ -55,8 +55,8 @@ func ParseTelemetryMessage(msg string) (*TelemetryMessage, error) {
 	case strings.Contains(msg, "device_metrics:{"):
 		tm.Type = DeviceMetricsType
 		metrics := DeviceMetrics{}
-		// re := regexp.MustCompile(`battery_level:(\d+) voltage:([\d.]+) channel_utilization:([\d.]+) air_util_tx:([\d.]+) uptime_seconds:(\d+)`)
-		re := regexp.MustCompile(`battery_level:(\d+)\s+voltage:([\d.]+)\s+channel_utilization:([\d.]+)\s+air_util_tx:([\d.]+)\s+uptime_seconds:(\d+)`)
+		//re := regexp.MustCompile(`battery_level:(\d+)\s+voltage:([\d.]+)\s+channel_utilization:([\d.]+)\s+air_util_tx:([\d.]+)\s+uptime_seconds:(\d+)`)
+		re := regexp.MustCompile(`battery_level:(\d+)\s+voltage:(-?[\d.]+)\s+channel_utilization:([\d.]+)\s+air_util_tx:([\d.]+)\s+uptime_seconds:(\d+)`)
 
 		match := re.FindStringSubmatch(msg)
 		if len(match) != 6 {

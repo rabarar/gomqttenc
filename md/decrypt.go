@@ -2,6 +2,7 @@ package md
 
 import (
 	"crypto/aes"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
@@ -16,6 +17,58 @@ func buildNonce(packetID uint32, fromNode uint32, extraNonce uint32) []byte {
 	binary.LittleEndian.PutUint32(nonce[4:8], extraNonce)
 	binary.LittleEndian.PutUint32(nonce[8:12], fromNode)
 	return nonce
+}
+
+func EncryptCurve25519(
+	toNode uint32,
+	packetID uint32,
+	remotePubKey []byte,
+	myPrivKey []byte,
+	plaintext []byte,
+) ([]byte, error) {
+	// Generate a random 4-byte extra nonce
+	extraNonceBytes := make([]byte, 4)
+	if _, err := rand.Read(extraNonceBytes); err != nil {
+		return nil, fmt.Errorf("failed to generate extra nonce: %w", err)
+	}
+	extraNonce := binary.LittleEndian.Uint32(extraNonceBytes)
+
+	nonce := buildNonce(packetID, toNode, extraNonce)
+
+	// Derive shared secret
+	sharedSecret, err := curve25519.X25519(myPrivKey, remotePubKey)
+	if err != nil {
+		return nil, fmt.Errorf("failed deriving shared secret: %w", err)
+	}
+
+	hashedKey := sha256.Sum256(sharedSecret)
+
+	// Setup AESCCM
+	block, err := aes.NewCipher(hashedKey[:])
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AES block: %w", err)
+	}
+
+	ccm, err := psaesccm.NewCCM(block, 8, 13) // tagSize=8, nonceSize=13
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CCM context: %w", err)
+	}
+
+	// Encrypt
+	ciphertextWithMAC := ccm.Seal(nil, nonce, plaintext, nil)
+
+	// Separate ciphertext and MAC
+	if len(ciphertextWithMAC) < 8 {
+		return nil, fmt.Errorf("ciphertext too short")
+	}
+	ciphertext := ciphertextWithMAC[:len(ciphertextWithMAC)-8]
+	mac := ciphertextWithMAC[len(ciphertextWithMAC)-8:]
+
+	// Construct final payload: ciphertext + MAC + extraNonceBytes
+	finalPayload := append(ciphertext, mac...)
+	finalPayload = append(finalPayload, extraNonceBytes...)
+
+	return finalPayload, nil
 }
 
 func DecryptCurve25519(

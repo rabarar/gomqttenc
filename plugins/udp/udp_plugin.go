@@ -45,7 +45,9 @@ func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message)
 	log.Warnf("From: [%x] To: [%x] Id: [%x] Channel: [%x], WantAck: [%v], ViaMqtt: [%v]",
 		mesh.From, mesh.To, mesh.Id, mesh.Channel, mesh.WantAck, mesh.ViaMqtt)
 	if !mesh.PkiEncrypted {
-		log.Warnf("ignoring decoded payload: [%s]", mesh.GetDecoded())
+		if mesh.GetDecoded() != nil {
+			log.Warnf("ignoring decoded payload: [%s]", mesh.GetDecoded())
+		}
 	} else {
 
 		fromKeyName := fmt.Sprintf("!%x", mesh.From)

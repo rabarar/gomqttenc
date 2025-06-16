@@ -44,13 +44,6 @@ func TryDecode(packet *meshtastic.MeshPacket, keys []shared.Key, decryptType Dec
 				return nil, ErrDecrypt
 			}
 		case DecryptDirect:
-			/*
-				ciphertext := packet.GetEncrypted()
-				log.Warnf("CIPHERTEXT: [%s][%d]", hex.EncodeToString(ciphertext), len(ciphertext))
-				log.Warnf("PacketId: [%x]", packet.Id)
-				log.Warnf("From: [%x]", packet.From)
-			*/
-
 			// Sender's private key
 			// derive sender's public key
 			keyslice, err := utils.SliceTo32ByteArray(keys[SenderKeyIndex].Hex)
