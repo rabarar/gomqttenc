@@ -34,7 +34,7 @@ func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message)
 
 func handleMeshtasticTopics(msg mqtt.Message, telegrafChannel chan shared.TelegrafChannelMessage, channelKeys map[string]shared.Key) error {
 
-	// TODO DEBUG!
+	// TODO DEBUG JSON guessing ...
 
 	if utils.IsLikelyJSON(msg.Payload()) {
 		log.Warnf("msg is likely JSON: [%s]", msg.Payload())
@@ -119,7 +119,7 @@ func handleMeshtasticTopics(msg mqtt.Message, telegrafChannel chan shared.Telegr
 		return shared.ErrMeshHandlerError
 	}
 
-	if out, err := processMessage(messagePtr); err != nil {
+	if out, err := shared.ProcessMessage(messagePtr); err != nil {
 		if messagePtr.Portnum != 0 {
 			log.Error("failed to process message", "err", err, "source", messagePtr.Source, "dest", messagePtr.Dest, "payload", hex.EncodeToString(msg.Payload()), "topic", msg.Topic(), "channel", env.ChannelId, "portnum", messagePtr.Portnum.String())
 		}
@@ -249,57 +249,6 @@ func handleMeshtasticTopics(msg mqtt.Message, telegrafChannel chan shared.Telegr
 		}
 	}
 	return nil
-}
-
-// Meshtastic message processing function unmarshaling and return the contents in a string
-func processMessage(message *meshtastic.Data) (string, error) {
-	var err error
-	if message.Portnum == meshtastic.PortNum_NODEINFO_APP {
-		var user = meshtastic.User{}
-		err = proto.Unmarshal(message.Payload, &user)
-		return user.String(), err
-	}
-	if message.Portnum == meshtastic.PortNum_POSITION_APP {
-		var pos = meshtastic.Position{}
-		err = proto.Unmarshal(message.Payload, &pos)
-		return pos.String(), err
-	}
-	if message.Portnum == meshtastic.PortNum_TELEMETRY_APP {
-		var t = meshtastic.Telemetry{}
-		err = proto.Unmarshal(message.Payload, &t)
-		return t.String(), err
-	}
-	if message.Portnum == meshtastic.PortNum_NEIGHBORINFO_APP {
-		var n = meshtastic.NeighborInfo{}
-		err = proto.Unmarshal(message.Payload, &n)
-		return n.String(), err
-	}
-	if message.Portnum == meshtastic.PortNum_STORE_FORWARD_APP {
-		var s = meshtastic.StoreAndForward{}
-		err = proto.Unmarshal(message.Payload, &s)
-		return s.String(), err
-	}
-	if message.Portnum == meshtastic.PortNum_TEXT_MESSAGE_APP {
-		txt := message.Payload
-		return string(txt), err
-	}
-	if message.Portnum == meshtastic.PortNum_MAP_REPORT_APP {
-		var m = meshtastic.MapReport{}
-		err = proto.Unmarshal(message.Payload, &m)
-		return m.String(), err
-	}
-	if message.Portnum == meshtastic.PortNum_TRACEROUTE_APP {
-		txt := message.Payload
-		return string(txt), err
-	}
-	if message.Portnum == meshtastic.PortNum_ROUTING_APP {
-		var r = meshtastic.Routing{}
-		err = proto.Unmarshal(message.Payload, &r)
-		return r.String(), err
-	}
-
-	log.Warn("Unknown messsage type: %d\n", message.Portnum)
-	return "", shared.ErrUnknownMessageType
 }
 
 // This symbol will be looked up

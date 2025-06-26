@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"gomqttenc/md"
 	"gomqttenc/parser"
@@ -23,10 +24,15 @@ func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message)
 	}
 
 	telegrafChan, ok := (ctx.TelegrafChan).(chan shared.TelegrafChannelMessage)
-
 	if !ok {
 		log.Fatal("failed to cast expected data to chan shared.TelegrafChannelMessage")
 	}
+
+	return HandleUDPPacket(msg, telegrafChan, ctx.ChannelKeys, ctx.ChannelKeysByChannelNum)
+
+}
+
+func HandleUDPPacket(msg mqtt.Message, telegrafChannel chan shared.TelegrafChannelMessage, channelKeys map[string]shared.Key, channelKeysByChannelNum map[uint32]shared.Key) error {
 
 	var mesh meshtastic.MeshPacket
 	err := proto.Unmarshal(msg.Payload(), &mesh)
@@ -44,9 +50,51 @@ func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message)
 
 	log.Warnf("From: [%x] To: [%x] Id: [%x] Channel: [%x], WantAck: [%v], ViaMqtt: [%v]",
 		mesh.From, mesh.To, mesh.Id, mesh.Channel, mesh.WantAck, mesh.ViaMqtt)
+
 	if !mesh.PkiEncrypted {
 		if mesh.GetDecoded() != nil {
 			log.Warnf("ignoring decoded payload: [%s]", mesh.GetDecoded())
+		} else {
+			var privKeys []shared.Key
+			log.Warnf("encryted payload: [%s]", hex.EncodeToString(mesh.GetEncrypted()))
+			log.Debugf("retrieving key for %x", mesh.Channel)
+
+			// TODO - need to create mapping for channel num to string
+			privKey, ok := channelKeysByChannelNum[mesh.Channel]
+			if !ok {
+				log.Errorf("no private key found for Channel: [%x]", mesh.Channel)
+				return shared.ErrMeshHandlerError
+			}
+			log.Debugf("Decoding with key [%s]", privKey.Txt)
+
+			privKeys = append(privKeys, privKey)
+
+			messagePtr, err := md.TryDecode(&mesh, privKeys, md.DecryptChannel)
+
+			if err != nil {
+				log.Error("failed to decode packet", "err", err, "payload", hex.EncodeToString(mesh.GetEncrypted()))
+				return shared.ErrMeshHandlerError
+			}
+
+			if out, err := shared.ProcessMessage(messagePtr); err != nil {
+				if messagePtr.Portnum != 0 {
+					log.Error("failed to process message", "err", err, "source", messagePtr.Source, "dest", messagePtr.Dest, "payload", hex.EncodeToString(msg.Payload()), "topic", msg.Topic(), "channel", mesh.Channel, "portnum", messagePtr.Portnum.String())
+				}
+				return shared.ErrMeshHandlerError
+			} else {
+				log.Info(out, "topic", msg.Topic, "source", messagePtr.Source, "dest", messagePtr.Dest, "channel", mesh.Channel, "portnum", messagePtr.Portnum.String())
+
+				log.Debugf("parsing [%s]", out)
+				messageEnv := parser.MessageEnvelope{
+					Device: mesh.From,
+					From:   mesh.From,
+					To:     mesh.To,
+					Topic:  msg.Topic(),
+				}
+				log.Debugf("message Env: [%v]", messageEnv)
+				// TODO need to add telegraf publishing  (from msh - create shared code..)
+			}
+
 		}
 	} else {
 
@@ -54,7 +102,7 @@ func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message)
 		toKeyName := fmt.Sprintf("!%x", mesh.To)
 
 		// compute Sender' public key from private key
-		keyslice, err := utils.SliceTo32ByteArray(ctx.ChannelKeys[fromKeyName].Hex)
+		keyslice, err := utils.SliceTo32ByteArray(channelKeys[fromKeyName].Hex)
 		if err != nil {
 			log.Warnf("failed to SliceTo32Bytes: %s", err)
 			return shared.ErrMeshHandlerError
@@ -65,7 +113,7 @@ func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message)
 			return shared.ErrMeshHandlerError
 		}
 
-		decrypted, err := md.DecryptCurve25519(mesh.From, mesh.Id, senderPub[:], ctx.ChannelKeys[toKeyName].Hex, mesh.GetEncrypted())
+		decrypted, err := md.DecryptCurve25519(mesh.From, mesh.Id, senderPub[:], channelKeys[toKeyName].Hex, mesh.GetEncrypted())
 
 		if err != nil {
 			log.Warnf("failed to decrypting packet: %s", err)
@@ -81,7 +129,7 @@ func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message)
 		}
 
 		// TODO PROCESS TEXT MESSAGE
-		err = parser.ProcessTextMessage(telegrafChan, parsed.Parsed, messageEnv)
+		err = parser.ProcessTextMessage(telegrafChannel, parsed.Parsed, messageEnv)
 		if err != nil {
 			log.Warnf("parse error: %s", err)
 			return err

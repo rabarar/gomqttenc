@@ -20,8 +20,9 @@ import (
 )
 
 var (
-	channelKeys     = map[string]shared.Key{}
-	telegrafChannel = make(chan shared.TelegrafChannelMessage)
+	channelKeys             = map[string]shared.Key{}
+	channelKeysByChannelNum = map[uint32]shared.Key{}
+	telegrafChannel         = make(chan shared.TelegrafChannelMessage)
 )
 
 func main() {
@@ -70,7 +71,16 @@ func main() {
 			if err != nil {
 				log.Fatalf("Invalid base64 channel key: %s", err)
 			}
-			channelKeys[k] = key
+			// check to see if it's a direct or channel key and add it accordingly
+
+			// if it starts with a bang it's a node key (DIRECT)
+			if len(k) > 0 && k[0] == '!' {
+				channelKeys[k] = key
+			} else {
+				channelKeys[k] = key
+				cHash := generateHash(k, key.Txt)
+				channelKeysByChannelNum[cHash] = key
+			}
 		}
 	}
 
@@ -95,9 +105,10 @@ func main() {
 	opts.SetUsername(cfg.Username)
 	opts.SetPassword(cfg.Password)
 	opts.SetDefaultPublishHandler(makeHandler(&shared.MqttMessageHandlerContext{
-		Plugs:        MqttPluginHandlers,
-		TelegrafChan: telegrafChannel,
-		ChannelKeys:  channelKeys,
+		Plugs:                   MqttPluginHandlers,
+		TelegrafChan:            telegrafChannel,
+		ChannelKeys:             channelKeys,
+		ChannelKeysByChannelNum: channelKeysByChannelNum,
 	}))
 
 	client := mqtt.NewClient(opts)
