@@ -28,11 +28,19 @@ func startPublisher(ctx context.Context, wg *sync.WaitGroup, telegrafURL string,
 
 			switch metric := msg.(type) {
 			case parser.NodeInfoMessage:
-				line = fmt.Sprintf("device_metrics,device=%x,channel=LongFast,portnum=NODEINFO_APP "+
-					"id=\"%s\",long_name=\"%s\",short_name=\"%s\",macaddr=\"%-2.2x:%-2.2x:%-2.2x:%-2.2x:%-2.2x:%-2.2x\",hw_model=\"%s\",public_key=\"֡%x\"",
-					metric.Envelope.Device, metric.Id, metric.LongName, metric.ShortName,
-					metric.MACaddr[0], metric.MACaddr[1], metric.MACaddr[2], metric.MACaddr[3], metric.MACaddr[4], metric.MACaddr[5],
-					metric.HWModel, metric.PublicKey[0])
+				if len(metric.PublicKey) > 0 {
+					line = fmt.Sprintf("device_metrics,device=%x,channel=LongFast,portnum=NODEINFO_APP "+
+						"id=\"%s\",long_name=\"%s\",short_name=\"%s\",macaddr=\"%-2.2x:%-2.2x:%-2.2x:%-2.2x:%-2.2x:%-2.2x\",hw_model=\"%s\",public_key=\"֡%x\"",
+						metric.Envelope.Device, metric.Id, metric.LongName, metric.ShortName,
+						metric.MACaddr[0], metric.MACaddr[1], metric.MACaddr[2], metric.MACaddr[3], metric.MACaddr[4], metric.MACaddr[5],
+						metric.HWModel, metric.PublicKey[0])
+				} else {
+					line = fmt.Sprintf("device_metrics,device=%x,channel=LongFast,portnum=NODEINFO_APP "+
+						"id=\"%s\",long_name=\"%s\",short_name=\"%s\",macaddr=\"%-2.2x:%-2.2x:%-2.2x:%-2.2x:%-2.2x:%-2.2x\",hw_model=\"%s\"",
+						metric.Envelope.Device, metric.Id, metric.LongName, metric.ShortName,
+						metric.MACaddr[0], metric.MACaddr[1], metric.MACaddr[2], metric.MACaddr[3], metric.MACaddr[4], metric.MACaddr[5],
+						metric.HWModel)
+				}
 
 			case parser.DeviceMetrics:
 				line = fmt.Sprintf("device_metrics,device=%x,channel=LongFast,portnum=TELEMETRY_APP "+

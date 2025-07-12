@@ -95,8 +95,9 @@ func ProcessMessage(message *meshtastic.Data) (string, error) {
 		return m.String(), err
 	}
 	if message.Portnum == meshtastic.PortNum_TRACEROUTE_APP {
-		txt := message.Payload
-		return string(txt), err
+		var r = meshtastic.RouteDiscovery{}
+		err = proto.Unmarshal(message.Payload, &r)
+		return r.String(), err
 	}
 	if message.Portnum == meshtastic.PortNum_ROUTING_APP {
 		var r = meshtastic.Routing{}

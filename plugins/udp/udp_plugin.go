@@ -56,7 +56,7 @@ func HandleUDPPacket(msg mqtt.Message, telegrafChannel chan shared.TelegrafChann
 			log.Warnf("ignoring decoded payload: [%s]", mesh.GetDecoded())
 		} else {
 			var privKeys []shared.Key
-			log.Warnf("encryted payload: [%s]", hex.EncodeToString(mesh.GetEncrypted()))
+			log.Warnf("encrypted payload: [%s]", hex.EncodeToString(mesh.GetEncrypted()))
 			log.Debugf("retrieving key for %x", mesh.Channel)
 
 			// TODO - need to create mapping for channel num to string
@@ -82,7 +82,13 @@ func HandleUDPPacket(msg mqtt.Message, telegrafChannel chan shared.TelegrafChann
 				}
 				return shared.ErrMeshHandlerError
 			} else {
-				log.Info(out, "topic", msg.Topic, "source", messagePtr.Source, "dest", messagePtr.Dest, "channel", mesh.Channel, "portnum", messagePtr.Portnum.String())
+				if messagePtr.Portnum == meshtastic.PortNum_TEXT_MESSAGE_APP {
+					log.Infof("\x1b[7m")
+					log.Info(out, "topic", msg.Topic, "source", messagePtr.Source, "dest", messagePtr.Dest, "channel", mesh.Channel, "portnum", messagePtr.Portnum.String())
+					log.Infof("\x1b[0m")
+				} else {
+					log.Info(out, "topic", msg.Topic, "source", messagePtr.Source, "dest", messagePtr.Dest, "channel", mesh.Channel, "portnum", messagePtr.Portnum.String())
+				}
 
 				log.Debugf("parsing [%s]", out)
 				messageEnv := parser.MessageEnvelope{

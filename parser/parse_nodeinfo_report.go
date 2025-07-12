@@ -44,7 +44,8 @@ func unescapeBytes(escaped string) ([]byte, error) {
 
 func ParseNodeInfoMessage(input string) (*NodeInfoMessage, error) {
 	var nodeInfoRegex = regexp.MustCompile(
-		`id:"(?P<id>.*?)"\s+long_name:"(?P<long_name>.*?)"\s+short_name:"(?P<short_name>.*?)"\s+macaddr:"(?P<macaddr>.*?)"\s+hw_model:(?P<hw_model>\S+)\s+public_key:"(?P<public_key>.*?)"`)
+		// `id:"(?P<id>.*?)"\s+long_name:"(?P<long_name>.*?)"\s+short_name:"(?P<short_name>.*?)"\s+macaddr:"(?P<macaddr>.*?)"\s+hw_model:(?P<hw_model>\S+)\s+public_key:"(?P<public_key>.*?)"`)
+		`id:"(?P<id>.*?)"\s+long_name:"(?P<long_name>.*?)"\s+short_name:"(?P<short_name>.*?)"\s+macaddr:"(?P<macaddr>.*?)"\s+hw_model:(?P<hw_model>\S+)(?:\s+public_key:"(?P<public_key>.*?)")?`)
 
 	match := nodeInfoRegex.FindStringSubmatch(input)
 	if match == nil {
