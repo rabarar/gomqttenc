@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"gomqttenc/rtl433"
 	"gomqttenc/shared"
 	"log"
@@ -14,12 +13,17 @@ type MshMqttHandler struct{}
 
 func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message) error {
 
-	var sd rtl433.RTL433SensorData
-
-	telegrafChannel, ok := data.(chan shared.TelegrafChannelMessage)
+	ctx, ok := data.(*shared.MqttMessageHandlerContext)
 	if !ok {
-		return errors.New("failed to cast passed data as telegraf channel message type")
+		log.Fatal("failed to cast expected data to MqttMessageHandlerContext")
 	}
+
+	telegrafChannel, ok := (ctx.TelegrafChan).(chan shared.TelegrafChannelMessage)
+	if !ok {
+		log.Fatal("failed to cast expected data to chan shared.TelegrafChannelMessage")
+	}
+
+	var sd rtl433.RTL433SensorData
 
 	// Unmarshal the JSON into the struct
 	if err := json.Unmarshal([]byte(msg.Payload()), &sd); err != nil {

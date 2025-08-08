@@ -64,7 +64,7 @@ func main() {
 	// show keys for channels
 	for _, entry := range cfg.B64Keys {
 		for k, v := range entry {
-			log.Debug("creating key %s, value %s", k, string(v))
+			log.Infof("creating key %s, value %s", k, string(v))
 			var key shared.Key
 			key.Txt = string(v)
 			key.Hex, err = base64.StdEncoding.DecodeString(string(v))
@@ -80,6 +80,7 @@ func main() {
 				channelKeys[k] = key
 				cHash := generateHash(k, key.Txt)
 				channelKeysByChannelNum[cHash] = key
+				log.Infof("creating hash key %s value %x", k, cHash)
 			}
 		}
 	}
