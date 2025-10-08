@@ -86,7 +86,7 @@ func startPublisher(ctx context.Context, wg *sync.WaitGroup, telegrafURL string,
 					metric.LatitudeI, metric.LongitudeI, metric.Altitude, metric.Time, metric.LocationSource, ts, seq, sats, metric.GroundSpeed, metric.GroundTrack, metric.PrecisionBits, timestamp)
 
 			case rtl433.RTL433SensorData:
-				line = fmt.Sprintf("rtl_433,model=\"%s\",ID=%d "+
+				line = fmt.Sprintf("rtl_433,model=\"%s\",ID=%s "+
 					"TemperatureC=%f,Humidity=%d,BatteryOK=%d,Status=%d,MIC=\"%s\" %d",
 					metric.Model, metric.ID, metric.TemperatureC, metric.Humidity, metric.BatteryOK, metric.Status, metric.MIC, timestamp)
 

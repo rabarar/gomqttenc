@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"gomqttenc/md"
 	"gomqttenc/parser"
 	"gomqttenc/shared"
+	"gomqttenc/tak"
 	"gomqttenc/utils"
+	"time"
 
 	"github.com/charmbracelet/log"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -119,7 +122,7 @@ func handleMeshtasticTopics(msg mqtt.Message, telegrafChannel chan shared.Telegr
 		return shared.ErrMeshHandlerError
 	}
 
-	if out, err := shared.ProcessMessage(messagePtr); err != nil {
+	if out, _, err := shared.ProcessMessage(messagePtr); err != nil {
 		if messagePtr.Portnum != 0 {
 			log.Error("failed to process message", "err", err, "source", messagePtr.Source, "dest", messagePtr.Dest, "payload", hex.EncodeToString(msg.Payload()), "topic", msg.Topic(), "channel", env.ChannelId, "portnum", messagePtr.Portnum.String())
 		}
@@ -177,6 +180,23 @@ func handleMeshtasticTopics(msg mqtt.Message, telegrafChannel chan shared.Telegr
 				NumOnlineLocalNodes: parsed.NumOnlineLocalNodes,
 			}
 
+			respBody, err := tak.PostTelemetryTAK(context.Background(),
+				"https://192.168.1.154:18888", tak.Telemetry{
+					SerialNumber: parsed.ShortName,
+					DateTime:     time.Now(),
+					Latitude:     float64(parsed.LatitudeI) / 10_000_000.0,
+					Longitude:    float64(parsed.LongitudeI) / 10_000_000.0,
+					Event:        "event",
+					SolarPower:   "solar",
+					Speed:        "Speed",
+					Heading:      0,
+				}, true)
+			if err != nil {
+				log.Errorf("failed to post to TAK Server: %s", err)
+				return err
+			}
+			log.Infof("MAP: POST to TAK Server: %s", respBody)
+
 		case meshtastic.PortNum_POSITION_APP:
 			parsed, err := parser.ParsePositionMessage(out)
 			if err != nil {
@@ -198,6 +218,23 @@ func handleMeshtasticTopics(msg mqtt.Message, telegrafChannel chan shared.Telegr
 				GroundTrack:    parsed.GroundTrack,
 				PrecisionBits:  parsed.PrecisionBits,
 			}
+
+			respBody, err := tak.PostTelemetryTAK(context.Background(),
+				"https://localhost:18888", tak.Telemetry{
+					SerialNumber: fmt.Sprintf("%8.8x", messageEnv.From),
+					DateTime:     time.Now(),
+					Latitude:     float64(parsed.LatitudeI),
+					Longitude:    float64(parsed.LongitudeI),
+					Event:        "event",
+					SolarPower:   "solar",
+					Speed:        "Speed",
+					Heading:      0,
+				}, true)
+			if err != nil {
+				log.Errorf("failed to post to TAK Server: %s", err)
+				return err
+			}
+			log.Infof("POSITION: POST to TAK Server: %s", respBody)
 
 		case meshtastic.PortNum_TEXT_MESSAGE_APP:
 

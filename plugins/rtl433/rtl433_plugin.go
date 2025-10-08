@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"gomqttenc/rtl433"
 	"gomqttenc/shared"
-	"log"
+
+	"github.com/charmbracelet/log"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
@@ -15,7 +16,8 @@ func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message)
 
 	ctx, ok := data.(*shared.MqttMessageHandlerContext)
 	if !ok {
-		log.Fatal("failed to cast expected data to MqttMessageHandlerContext")
+		log.Error("failed to cast expected data to MqttMessageHandlerContext")
+		return rtl433.ErrHandleRTL433Data
 	}
 
 	telegrafChannel, ok := (ctx.TelegrafChan).(chan shared.TelegrafChannelMessage)
@@ -27,7 +29,7 @@ func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message)
 
 	// Unmarshal the JSON into the struct
 	if err := json.Unmarshal([]byte(msg.Payload()), &sd); err != nil {
-		log.Fatalf("Error unmarshaling JSON: %v", err)
+		log.Warnf("Error unmarshaling JSON: payload: [%s]  %v", msg.Payload(), err)
 		return rtl433.ErrHandleRTL433Data
 	}
 

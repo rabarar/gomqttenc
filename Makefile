@@ -29,6 +29,7 @@ gomqttenc: go.mod \
 	parser/*.go \
 	rtl433/*.go \
 	utils/*.go \
+	tak/*.go \
 	hash.go
 
 	go mod tidy; go build

@@ -46,8 +46,8 @@ github.com/pschlump/godebug v1.0.7 h1:I6hBJwcYyGBEb51L6qwHmKsV7F3b+12+KCUtGY5N7e
 github.com/pschlump/godebug v1.0.7/go.mod h1:c0I5L+AZnZ+oPqVmOvwyo1R0EeNWzFyfIv6w9QYOnpo=
 github.com/pschlump/json v1.12.1 h1:0E7lGxBvv7N+iY4p3/futCjRYAD62qpRL6+DdnZcSXY=
 github.com/pschlump/json v1.12.1/go.mod h1:O7hZ/dn2YrWqDT4CG8CJKJCSIv6Z+Lv1wINCA7BHeJA=
-github.com/rabarar/meshtastic v1.0.3-f h1:1LnqETWUc7DELRe7HWAfMgYWMhVKLG3tDNqpYUPBhuk=
-github.com/rabarar/meshtastic v1.0.3-f/go.mod h1:9vqOFBT1aw89mgTUzYTBXgS4v7SdBQQWw9JKdw9Zc7M=
+github.com/rabarar/meshtastic v1.0.3-n h1:PnlbD4pWBxsZlJXyxxqEkDRufw0AaQ3mDqybF2cdchg=
+github.com/rabarar/meshtastic v1.0.3-n/go.mod h1:9vqOFBT1aw89mgTUzYTBXgS4v7SdBQQWw9JKdw9Zc7M=
 github.com/rabarar/meshtool-go v1.0.1-m h1:6fDy2gY+l8UDhnVeDDaJ9MDsal6SKwCfwkiE4Buooug=
 github.com/rabarar/meshtool-go v1.0.1-m/go.mod h1:x0mSNxn0tF9RPMaOwv5xfsxBRq93hVCJZPXp/cHhhMc=
 github.com/rivo/uniseg v0.2.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=

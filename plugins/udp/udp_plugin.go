@@ -1,12 +1,15 @@
 package main
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"gomqttenc/md"
 	"gomqttenc/parser"
 	"gomqttenc/shared"
+	"gomqttenc/tak"
 	"gomqttenc/utils"
+	"time"
 
 	"github.com/charmbracelet/log"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -76,17 +79,46 @@ func HandleUDPPacket(msg mqtt.Message, telegrafChannel chan shared.TelegrafChann
 				return shared.ErrMeshHandlerError
 			}
 
-			if out, err := shared.ProcessMessage(messagePtr); err != nil {
+			if out, obj, err := shared.ProcessMessage(messagePtr); err != nil {
 				if messagePtr.Portnum != 0 {
 					log.Error("failed to process message", "err", err, "source", messagePtr.Source, "dest", messagePtr.Dest, "payload", hex.EncodeToString(msg.Payload()), "topic", msg.Topic(), "channel", mesh.Channel, "portnum", messagePtr.Portnum.String())
 				}
 				return shared.ErrMeshHandlerError
 			} else {
-				if messagePtr.Portnum == meshtastic.PortNum_TEXT_MESSAGE_APP {
+
+				switch messagePtr.Portnum {
+
+				case meshtastic.PortNum_TEXT_MESSAGE_APP:
 					log.Infof("\x1b[7m")
 					log.Info(out, "topic", msg.Topic, "source", messagePtr.Source, "dest", messagePtr.Dest, "channel", mesh.Channel, "portnum", messagePtr.Portnum.String())
 					log.Infof("\x1b[0m")
-				} else {
+
+				case meshtastic.PortNum_POSITION_APP:
+					pos, ok := obj.(*meshtastic.Position)
+					if ok {
+						log.Infof("\x1b[33;40")
+						log.Info(out, "topic", msg.Topic, "source", messagePtr.Source, "dest", messagePtr.Dest, "channel", mesh.Channel, "portnum", messagePtr.Portnum.String())
+						log.Infof("\x1b[0m")
+
+						resp, err := tak.PostTelemetryTAK(context.Background(),
+							"https://192.168.1.154:18888", tak.Telemetry{
+								SerialNumber: fmt.Sprintf("%8.8x", messageEnv.From),
+								DateTime:     time.Now(),
+								Latitude:     float64(*(pos.LatitudeI)) / 10_000_000.0,
+								Longitude:    float64(*(pos.LongitudeI)) / 10_000_000.0,
+								Event:        "event",
+								SolarPower:   "solar",
+								Speed:        "Speed",
+								Heading:      0,
+							}, true)
+						if err != nil {
+							log.Errorf("failed to post to TAK Server: %s", err)
+							return err
+						}
+						log.Infof("POSITION: POST to TAK Server: %s", resp)
+					}
+
+				default:
 					log.Info(out, "topic", msg.Topic, "source", messagePtr.Source, "dest", messagePtr.Dest, "channel", mesh.Channel, "portnum", messagePtr.Portnum.String())
 				}
 

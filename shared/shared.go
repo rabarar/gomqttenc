@@ -58,53 +58,53 @@ type MqttMessageHandlerContext struct {
 }
 
 // Meshtastic message processing function unmarshaling and return the contents in a string
-func ProcessMessage(message *meshtastic.Data) (string, error) {
+func ProcessMessage(message *meshtastic.Data) (string, interface{}, error) {
 	var err error
 	if message.Portnum == meshtastic.PortNum_NODEINFO_APP {
 		var user = meshtastic.User{}
 		err = proto.Unmarshal(message.Payload, &user)
-		return user.String(), err
+		return user.String(), &user, err
 	}
 	if message.Portnum == meshtastic.PortNum_POSITION_APP {
 		var pos = meshtastic.Position{}
 		err = proto.Unmarshal(message.Payload, &pos)
-		return pos.String(), err
+		return pos.String(), &pos, err
 	}
 	if message.Portnum == meshtastic.PortNum_TELEMETRY_APP {
 		var t = meshtastic.Telemetry{}
 		err = proto.Unmarshal(message.Payload, &t)
-		return t.String(), err
+		return t.String(), &t, err
 	}
 	if message.Portnum == meshtastic.PortNum_NEIGHBORINFO_APP {
 		var n = meshtastic.NeighborInfo{}
 		err = proto.Unmarshal(message.Payload, &n)
-		return n.String(), err
+		return n.String(), &n, err
 	}
 	if message.Portnum == meshtastic.PortNum_STORE_FORWARD_APP {
 		var s = meshtastic.StoreAndForward{}
 		err = proto.Unmarshal(message.Payload, &s)
-		return s.String(), err
+		return s.String(), &s, err
 	}
 	if message.Portnum == meshtastic.PortNum_TEXT_MESSAGE_APP {
 		txt := message.Payload
-		return string(txt), err
+		return string(txt), nil, err
 	}
 	if message.Portnum == meshtastic.PortNum_MAP_REPORT_APP {
 		var m = meshtastic.MapReport{}
 		err = proto.Unmarshal(message.Payload, &m)
-		return m.String(), err
+		return m.String(), &m, err
 	}
 	if message.Portnum == meshtastic.PortNum_TRACEROUTE_APP {
 		var r = meshtastic.RouteDiscovery{}
 		err = proto.Unmarshal(message.Payload, &r)
-		return r.String(), err
+		return r.String(), &r, err
 	}
 	if message.Portnum == meshtastic.PortNum_ROUTING_APP {
 		var r = meshtastic.Routing{}
 		err = proto.Unmarshal(message.Payload, &r)
-		return r.String(), err
+		return r.String(), &r, err
 	}
 
 	log.Warn("Unknown messsage type: %d\n", message.Portnum)
-	return "", ErrUnknownMessageType
+	return "", nil, ErrUnknownMessageType
 }
