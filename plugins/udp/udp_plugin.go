@@ -31,11 +31,11 @@ func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message)
 		log.Fatal("failed to cast expected data to chan shared.TelegrafChannelMessage")
 	}
 
-	return HandleUDPPacket(msg, telegrafChan, ctx.ChannelKeys, ctx.ChannelKeysByChannelNum)
+	return HandleUDPPacket(msg, telegrafChan, ctx.ChannelKeys, ctx.ChannelKeysByChannelNum, ctx.TAKServer)
 
 }
 
-func HandleUDPPacket(msg mqtt.Message, telegrafChannel chan shared.TelegrafChannelMessage, channelKeys map[string]shared.Key, channelKeysByChannelNum map[uint32]shared.Key) error {
+func HandleUDPPacket(msg mqtt.Message, telegrafChannel chan shared.TelegrafChannelMessage, channelKeys map[string]shared.Key, channelKeysByChannelNum map[uint32]shared.Key, TAKServer string) error {
 
 	var mesh meshtastic.MeshPacket
 	err := proto.Unmarshal(msg.Payload(), &mesh)
@@ -100,22 +100,26 @@ func HandleUDPPacket(msg mqtt.Message, telegrafChannel chan shared.TelegrafChann
 						log.Info(out, "topic", msg.Topic, "source", messagePtr.Source, "dest", messagePtr.Dest, "channel", mesh.Channel, "portnum", messagePtr.Portnum.String())
 						log.Infof("\x1b[0m")
 
-						resp, err := tak.PostTelemetryTAK(context.Background(),
-							"https://192.168.1.154:18888", tak.Telemetry{
-								SerialNumber: fmt.Sprintf("%8.8x", messageEnv.From),
-								DateTime:     time.Now(),
-								Latitude:     float64(*(pos.LatitudeI)) / 10_000_000.0,
-								Longitude:    float64(*(pos.LongitudeI)) / 10_000_000.0,
-								Event:        "event",
-								SolarPower:   "solar",
-								Speed:        "Speed",
-								Heading:      0,
-							}, true)
-						if err != nil {
-							log.Errorf("failed to post to TAK Server: %s", err)
-							return err
+						if pos != nil && pos.LatitudeI != nil && pos.LongitudeI != nil {
+							resp, err := tak.PostTelemetryTAK(context.Background(),
+								TAKServer, tak.Telemetry{
+									SerialNumber: float64(messageEnv.From),
+									DateTime:     time.Now(),
+									Latitude:     float64(*(pos.LatitudeI)) / 10_000_000.0,
+									Longitude:    float64(*(pos.LongitudeI)) / 10_000_000.0,
+									Event:        0,
+									SolarPower:   0.0,
+									Speed:        0.0,
+									Heading:      0,
+								}, true)
+							if err != nil {
+								log.Errorf("failed to post to TAK Server: %s", err)
+								return err
+							}
+							log.Infof("POSITION: POST to TAK Server: %s", resp)
+						} else {
+							log.Infof("POSITION: not posted, one ore more values is null in the POSITION object")
 						}
-						log.Infof("POSITION: POST to TAK Server: %s", resp)
 					}
 
 				default:

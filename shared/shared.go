@@ -36,6 +36,7 @@ type PluginConfig struct {
 
 // Config
 type Config struct {
+	TAKServer   string                  `json:"tak"`
 	Broker      string                  `json:"broker"`
 	Topics      map[string]PluginConfig `json:"topics"`
 	ClientID    string                  `json:"clientID"`
@@ -55,6 +56,7 @@ type MqttMessageHandlerContext struct {
 	TelegrafChan            TelegrafChannelMessage
 	ChannelKeys             map[string]Key
 	ChannelKeysByChannelNum map[uint32]Key
+	TAKServer               string
 }
 
 // Meshtastic message processing function unmarshaling and return the contents in a string

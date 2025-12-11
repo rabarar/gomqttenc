@@ -110,6 +110,7 @@ func main() {
 		TelegrafChan:            telegrafChannel,
 		ChannelKeys:             channelKeys,
 		ChannelKeysByChannelNum: channelKeysByChannelNum,
+		TAKServer:               cfg.TAKServer,
 	}))
 
 	client := mqtt.NewClient(opts)

@@ -9,6 +9,7 @@ import (
 	"gomqttenc/shared"
 	"gomqttenc/tak"
 	"gomqttenc/utils"
+	"strconv"
 	"time"
 
 	"github.com/charmbracelet/log"
@@ -31,11 +32,11 @@ func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message)
 		log.Fatal("failed to cast expected data to chan shared.TelegrafChannelMessage")
 	}
 
-	return handleMeshtasticTopics(msg, telegrafChan, ctx.ChannelKeys)
+	return handleMeshtasticTopics(msg, telegrafChan, ctx.ChannelKeys, ctx.TAKServer)
 
 }
 
-func handleMeshtasticTopics(msg mqtt.Message, telegrafChannel chan shared.TelegrafChannelMessage, channelKeys map[string]shared.Key) error {
+func handleMeshtasticTopics(msg mqtt.Message, telegrafChannel chan shared.TelegrafChannelMessage, channelKeys map[string]shared.Key, TAKServer string) error {
 
 	// TODO DEBUG JSON guessing ...
 
@@ -180,15 +181,21 @@ func handleMeshtasticTopics(msg mqtt.Message, telegrafChannel chan shared.Telegr
 				NumOnlineLocalNodes: parsed.NumOnlineLocalNodes,
 			}
 
+			serial, err := strconv.Atoi(parsed.ShortName)
+			if err != nil {
+				fmt.Printf("Error converting %s to int: %s", parsed.ShortName, err)
+				return shared.ErrMeshHandlerError
+			}
+
 			respBody, err := tak.PostTelemetryTAK(context.Background(),
-				"https://192.168.1.154:18888", tak.Telemetry{
-					SerialNumber: parsed.ShortName,
+				TAKServer, tak.Telemetry{
+					SerialNumber: float64(serial),
 					DateTime:     time.Now(),
 					Latitude:     float64(parsed.LatitudeI) / 10_000_000.0,
 					Longitude:    float64(parsed.LongitudeI) / 10_000_000.0,
-					Event:        "event",
-					SolarPower:   "solar",
-					Speed:        "Speed",
+					Event:        0,
+					SolarPower:   0.0,
+					Speed:        0.0,
 					Heading:      0,
 				}, true)
 			if err != nil {
@@ -220,14 +227,14 @@ func handleMeshtasticTopics(msg mqtt.Message, telegrafChannel chan shared.Telegr
 			}
 
 			respBody, err := tak.PostTelemetryTAK(context.Background(),
-				"https://localhost:18888", tak.Telemetry{
-					SerialNumber: fmt.Sprintf("%8.8x", messageEnv.From),
+				TAKServer, tak.Telemetry{
+					SerialNumber: float64(messageEnv.From),
 					DateTime:     time.Now(),
 					Latitude:     float64(parsed.LatitudeI),
 					Longitude:    float64(parsed.LongitudeI),
-					Event:        "event",
-					SolarPower:   "solar",
-					Speed:        "Speed",
+					Event:        0,
+					SolarPower:   0.0,
+					Speed:        0.0,
 					Heading:      0,
 				}, true)
 			if err != nil {

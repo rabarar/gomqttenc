@@ -13,13 +13,13 @@ import (
 
 // Telemetry matches the JSON payload exactly (note the json tags with spaces and slashes).
 type Telemetry struct {
-	SerialNumber string    `json:"serial number"`
+	SerialNumber float64   `json:"serial number"`
 	DateTime     time.Time `json:"date/time"` // Marshals RFC3339 by default
 	Latitude     float64   `json:"Latitude"`
 	Longitude    float64   `json:"Longitude"`
-	Event        string    `json:"Event"`
-	SolarPower   string    `json:"solar power"` // Strings in your sample payload
-	Speed        string    `json:"Speed"`       // Strings in your sample payload
+	Event        int       `json:"Event"`
+	SolarPower   float64   `json:"solar power"` // Strings in your sample payload
+	Speed        float64   `json:"Speed"`       // Strings in your sample payload
 	Heading      int       `json:"Heading"`
 }
 
