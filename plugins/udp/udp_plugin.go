@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/hex"
 	"fmt"
 	"gomqttenc/md"
@@ -31,11 +32,11 @@ func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message)
 		log.Fatal("failed to cast expected data to chan shared.TelegrafChannelMessage")
 	}
 
-	return HandleUDPPacket(msg, telegrafChan, ctx.ChannelKeys, ctx.ChannelKeysByChannelNum, ctx.TAKServer)
+	return HandleUDPPacket(msg, telegrafChan, ctx.ChannelKeys, ctx.ChannelKeysByChannelNum, ctx.TAKServer, ctx.TAKCerts.TLSClientConfig)
 
 }
 
-func HandleUDPPacket(msg mqtt.Message, telegrafChannel chan shared.TelegrafChannelMessage, channelKeys map[string]shared.Key, channelKeysByChannelNum map[uint32]shared.Key, TAKServer string) error {
+func HandleUDPPacket(msg mqtt.Message, telegrafChannel chan shared.TelegrafChannelMessage, channelKeys map[string]shared.Key, channelKeysByChannelNum map[uint32]shared.Key, TAKServer string, tlsConfig *tls.Config) error {
 
 	var mesh meshtastic.MeshPacket
 	err := proto.Unmarshal(msg.Payload(), &mesh)
@@ -102,7 +103,7 @@ func HandleUDPPacket(msg mqtt.Message, telegrafChannel chan shared.TelegrafChann
 
 						if pos != nil && pos.LatitudeI != nil && pos.LongitudeI != nil {
 							resp, err := tak.PostTelemetryTAK(context.Background(),
-								TAKServer, tak.Telemetry{
+								TAKServer, tlsConfig, tak.Telemetry{
 									SerialNumber: float64(messageEnv.From),
 									DateTime:     time.Now(),
 									Latitude:     float64(*(pos.LatitudeI)) / 10_000_000.0,

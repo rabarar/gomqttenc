@@ -10,6 +10,7 @@ require (
 	github.com/rabarar/meshtool-go v1.0.1-m
 	golang.org/x/crypto v0.37.0
 	google.golang.org/protobuf v1.36.6
+	software.sslmate.com/src/go-pkcs12 v0.6.0
 )
 
 require (

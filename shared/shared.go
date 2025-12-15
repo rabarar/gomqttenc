@@ -1,6 +1,7 @@
 package shared
 
 import (
+	"crypto/tls"
 	"errors"
 
 	"github.com/charmbracelet/log"
@@ -34,8 +35,19 @@ type PluginConfig struct {
 	QoS  byte   `json:"qos"`
 }
 
+type TAKCertsConfig struct {
+	PKCS12 string `json:"pkcs12"`
+	Passwd string `json:"passwd"`
+	CACert string `json:"ca_cert"`
+}
+
+type TAKCerts struct {
+	TLSClientConfig *tls.Config
+}
+
 // Config
 type Config struct {
+	TAKCerts    TAKCertsConfig          `json:"tak_certs"`
 	TAKServer   string                  `json:"tak"`
 	Broker      string                  `json:"broker"`
 	Topics      map[string]PluginConfig `json:"topics"`
@@ -57,6 +69,7 @@ type MqttMessageHandlerContext struct {
 	ChannelKeys             map[string]Key
 	ChannelKeysByChannelNum map[uint32]Key
 	TAKServer               string
+	TAKCerts                TAKCerts
 }
 
 // Meshtastic message processing function unmarshaling and return the contents in a string

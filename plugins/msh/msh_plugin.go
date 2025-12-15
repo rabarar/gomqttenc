@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/hex"
 	"fmt"
 	"gomqttenc/md"
@@ -32,11 +33,11 @@ func (m MshMqttHandler) Process(name string, data interface{}, msg mqtt.Message)
 		log.Fatal("failed to cast expected data to chan shared.TelegrafChannelMessage")
 	}
 
-	return handleMeshtasticTopics(msg, telegrafChan, ctx.ChannelKeys, ctx.TAKServer)
+	return handleMeshtasticTopics(msg, telegrafChan, ctx.ChannelKeys, ctx.TAKServer, ctx.TAKCerts.TLSClientConfig)
 
 }
 
-func handleMeshtasticTopics(msg mqtt.Message, telegrafChannel chan shared.TelegrafChannelMessage, channelKeys map[string]shared.Key, TAKServer string) error {
+func handleMeshtasticTopics(msg mqtt.Message, telegrafChannel chan shared.TelegrafChannelMessage, channelKeys map[string]shared.Key, TAKServer string, tlsConfig *tls.Config) error {
 
 	// TODO DEBUG JSON guessing ...
 
@@ -188,7 +189,7 @@ func handleMeshtasticTopics(msg mqtt.Message, telegrafChannel chan shared.Telegr
 			}
 
 			respBody, err := tak.PostTelemetryTAK(context.Background(),
-				TAKServer, tak.Telemetry{
+				TAKServer, tlsConfig, tak.Telemetry{
 					SerialNumber: float64(serial),
 					DateTime:     time.Now(),
 					Latitude:     float64(parsed.LatitudeI) / 10_000_000.0,
@@ -227,11 +228,11 @@ func handleMeshtasticTopics(msg mqtt.Message, telegrafChannel chan shared.Telegr
 			}
 
 			respBody, err := tak.PostTelemetryTAK(context.Background(),
-				TAKServer, tak.Telemetry{
+				TAKServer, tlsConfig, tak.Telemetry{
 					SerialNumber: float64(messageEnv.From),
 					DateTime:     time.Now(),
-					Latitude:     float64(parsed.LatitudeI),
-					Longitude:    float64(parsed.LongitudeI),
+					Latitude:     float64(parsed.LatitudeI) / 10_000_000.0,
+					Longitude:    float64(parsed.LongitudeI) / 10_000_000.0,
 					Event:        0,
 					SolarPower:   0.0,
 					Speed:        0.0,

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"time"
 )
@@ -25,13 +26,16 @@ type Telemetry struct {
 
 // PostTelemetry sends the JSON to the endpoint, optionally skipping TLS verification
 // (equivalent to curl --insecure). It returns the response body bytes.
-func PostTelemetryTAK(ctx context.Context, endpoint string, data Telemetry, insecureTLS bool) ([]byte, error) {
+func PostTelemetryTAK(ctx context.Context, endpoint string, tlsConfig *tls.Config, data Telemetry, insecureTLS bool) ([]byte, error) {
 	// TLS transport that can skip certificate verification when requested.
+
+	// TODO LEAVE OUT tlsConfig.InsecureSkipVerify = insecureTLS
+
 	tr := &http.Transport{
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: insecureTLS, // WARNING: only use this if you really trust the endpoint
-		},
+		TLSClientConfig: tlsConfig,
 	}
+
+	log.Printf("\nPostTelemetryTAK: tlsConfig ptr = %p\n", tlsConfig)
 
 	client := &http.Client{
 		Transport: tr,
