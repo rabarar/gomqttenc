@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"time"
 )
@@ -34,8 +33,6 @@ func PostTelemetryTAK(ctx context.Context, endpoint string, tlsConfig *tls.Confi
 	tr := &http.Transport{
 		TLSClientConfig: tlsConfig,
 	}
-
-	log.Printf("\nPostTelemetryTAK: tlsConfig ptr = %p\n", tlsConfig)
 
 	client := &http.Client{
 		Transport: tr,

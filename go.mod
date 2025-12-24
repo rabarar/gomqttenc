@@ -6,7 +6,7 @@ require (
 	github.com/charmbracelet/log v0.4.1
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 	github.com/pschlump/AesCCM v0.0.0-20160925022350-c5df73b5834e
-	github.com/rabarar/meshtastic v1.0.3-t
+	github.com/rabarar/meshtastic v1.0.3-v
 	github.com/rabarar/meshtool-go v1.0.1-m
 	golang.org/x/crypto v0.37.0
 	google.golang.org/protobuf v1.36.6

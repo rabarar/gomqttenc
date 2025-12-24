@@ -96,14 +96,13 @@ func main() {
 		//Renegotiation: tls.RenegotiateNever,
 	}
 
-	log.Printf("\ntlsConfig ptr = %p\n", tlsConfig)
 	tlsConfig.GetClientCertificate = func(cri *tls.CertificateRequestInfo) (*tls.Certificate, error) {
-		log.Printf("\t>>> server requested client cert; acceptable CAs: %d", len(cri.AcceptableCAs))
+		//log.Printf("\t>>> server requested client cert; acceptable CAs: %d", len(cri.AcceptableCAs))
 		if len(tlsConfig.Certificates) == 0 {
 			log.Printf("\t>>> no client cert configured")
 			return &tls.Certificate{}, nil
 		}
-		log.Printf("\t>>> returning client cert chain length: %d", len(tlsConfig.Certificates[0].Certificate))
+		//log.Printf("\t>>> returning client cert chain length: %d", len(tlsConfig.Certificates[0].Certificate))
 		return &tlsConfig.Certificates[0], nil
 	}
 
